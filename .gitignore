@@ -1,0 +1,15 @@
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+.wrangler/
+node_modules/
+dist/
+coverage/
+backups/
+exports/
+uploads/
+*.sqlite
+*.sqlite3
+*.db
+*.log
