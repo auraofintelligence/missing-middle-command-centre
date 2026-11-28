@@ -2,8 +2,8 @@
 
 | Surface | URL | Cloudflare version |
 | --- | --- | --- |
-| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `415583ce-fed4-4673-8161-40f27acf11c0` |
-| Fictional demo | [Open demo](https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/) | `73a4f6ce-5785-4a9c-a122-64dafdcf1a7e` |
+| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `f49ec734-9dfd-4e1d-9832-4196d7d08a5e` |
+| Fictional demo | [Open demo](https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/) | `8300c4a2-5679-4374-8d9b-fb31ff79e60a` |
 
 The private Worker runs `src/worker.mjs` with the dedicated `DB` binding, `nodejs_compat` and `PASSWORD_AUTH=enabled`. Cloudflare Access protects `/account/setup` using the Cloudflare account identity provider and a rule for the owner's email. The Worker independently validates the Access token before enrolling the existing authorised account. The hosted sign-in form and other private routes use application sessions. Both Workers have preview URLs disabled.
 
@@ -31,4 +31,4 @@ The shared header and browser icon use the command centre artwork in `assets/bra
 
 ## National Coverage
 
-Both deployments include the generated ABS 2021 reference layer. The private Worker also stores Webmaster catchments and signed changes in D1. The [cloud checks](https://github.com/auraofintelligence/missing-middle-command-centre/actions/runs/46142180675) passed. Cloudflare Browser Rendering checked the map controls and the live demo’s zero-population filter and Apply anchor. See [sources and rebuild](NATIONAL-COVERAGE.md).
+Both deployments include the generated ABS 2021 reference layer. The private Worker also stores Webmaster catchments and signed changes in D1. The [cloud checks](https://github.com/auraofintelligence/missing-middle-command-centre/actions/runs/46143275194) passed. Cloudflare Browser Rendering checked the map controls and the live demo’s zero-population filter, the 852 areas in the 10,000-and-over view and the Apply anchor. See [sources and rebuild](NATIONAL-COVERAGE.md).
