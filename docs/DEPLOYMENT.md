@@ -24,3 +24,7 @@ GitHub Actions exercised password validation, attempt-window behaviour, confirma
 ## Updating or rolling back
 
 All three D1 migrations are applied. Keep Cloudflare Access and its audience for enrolment. To roll back to Cloudflare-only sign-in, restore the full-hostname Access scope first, then restore the previous Worker version. Leave the database intact.
+
+## Brand artwork
+
+The shared header and browser icon use the command centre artwork in `assets/brand-master.png`. To regenerate the embedded ICO and PNG assets, install Pillow and run `python3 tools/build_brand.py`. The favicon and logo are served on both Worker hostnames before sign-in.
