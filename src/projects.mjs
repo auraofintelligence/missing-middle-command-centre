@@ -54,9 +54,9 @@ export function roleView(url, account) {
   return {role,id};
 }
 
-function scope(account, preview, editing = false) {
+export function projectScope(account, preview, editing = false) {
   const sql = `EXISTS (SELECT 1 FROM accounts a WHERE a.id=?1 AND a.active=1 AND
-    ((a.owner=1 AND (?2 IS NULL OR projects.id=?2)) OR EXISTS (
+    (?2 IS NULL OR projects.id=?2) AND (a.owner=1 OR EXISTS (
       SELECT 1 FROM project_grants g WHERE g.account_id=a.id AND g.project_id=projects.id
       AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at>?3)
       ${editing ? "AND g.role='Project manager'" : ''})))`;
@@ -64,7 +64,7 @@ function scope(account, preview, editing = false) {
 }
 
 export async function listProjects(db, account, preview, query, cursor) {
-  const {sql,params} = scope(account,preview);
+  const {sql,params} = projectScope(account,preview);
   const after = cursor?.split('|') ?? [];
   const paginating = after.length === 2 && /^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(after[0]) && uuid.test(after[1]);
   const {results} = await db.prepare(`SELECT ${columns.join(',')} FROM projects WHERE ${sql}
@@ -77,7 +77,7 @@ export async function listProjects(db, account, preview, query, cursor) {
 }
 
 export async function readProject(db, account, preview, id) {
-  const {sql,params} = scope(account,preview);
+  const {sql,params} = projectScope(account,preview);
   const project = await db.prepare(`SELECT ${columns.join(',')} FROM projects WHERE ${sql} AND id=?4`)
     .bind(...params,id).first();
   if (!project) throw new Problem(404,'Project not found.');
@@ -86,12 +86,12 @@ export async function readProject(db, account, preview, id) {
 
 export async function canEdit(db, account, preview, id) {
   if (preview) return false;
-  const {sql,params} = scope(account,null,true);
+  const {sql,params} = projectScope(account,null,true);
   return Boolean(await db.prepare(`SELECT id FROM projects WHERE ${sql} AND id=?4`).bind(...params,id).first());
 }
 
 export async function readHistory(db, account, preview, id, before) {
-  const {sql,params} = scope(account,preview);
+  const {sql,params} = projectScope(account,preview);
   const {results} = await db.prepare(`SELECT r.version,r.actor_name,r.changed_at,r.reason,r.snapshot
     FROM project_revisions r JOIN projects ON projects.id=r.project_id
     WHERE ${sql} AND projects.id=?4 AND (?5 IS NULL OR r.version<?5)
@@ -155,7 +155,7 @@ export async function saveProject(db, account, preview, id, request) {
     const metadata = [account.id,account.name,timestamp,reason,requestKey,hash];
     try {
       if (id) {
-        const {sql,params} = scope(account,null,true);
+        const {sql,params} = projectScope(account,null,true);
         const setters = names.map((name,i) => name+'=?'+(i+6));
         const offset = 6 + names.length;
         const result = await db.prepare(`UPDATE projects SET ${setters.join(',')}, version=version+1,
@@ -187,4 +187,11 @@ export async function saveProject(db, account, preview, id, request) {
     if (error instanceof Problem && error.status === 422) error.values = values;
     throw error;
   }
+}
+
+export async function projectChoices(db,account,preview,editing=false){
+  const {sql,params}=projectScope(account,preview,editing);
+  const result=await db.prepare(`SELECT id,title,postcode FROM projects WHERE ${sql}
+    ORDER BY title COLLATE NOCASE,id LIMIT 100`).bind(...params).all();
+  return result.results;
 }

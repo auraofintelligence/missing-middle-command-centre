@@ -6,11 +6,12 @@ import {accessIdentity,accountFor} from '../src/access.mjs';
 import {readProject,readHistory,listProjects,saveProject,roleView} from '../src/projects.mjs';
 import worker from '../src/worker.mjs';
 import demo from '../src/demo.mjs';
+import {saveDeskRecord,getDeskRecord,listDeskRecords,deskCounts,deskHistory} from '../src/desk-records.mjs';
 import {validPassword,reserveAttempt,enrolPassword,passwordSession} from '../src/passwords.mjs';
 
 function database() {
   const sqlite = new DatabaseSync(':memory:');
-  for (const file of ['0001_projects.sql','0002_password_accounts.sql']) {
+  for (const file of ['0001_projects.sql','0002_password_accounts.sql','0003_desk_records.sql']) {
     sqlite.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
   }
   const db = {
@@ -206,4 +207,58 @@ test('sign-in and confirmation share attempts and use a revocable session',async
   assert.equal((await worker.fetch(request('/account/confirm',{password},cookie),env)).status,429);
   assert.equal((await worker.fetch(request('/account/sign-out',{},cookie),env)).status,303);
   assert.equal(await passwordSession(db,request('/',null,cookie)),null);
+});
+
+function deskForm(overrides={}, key=crypto.randomUUID()){
+  const values={title:'Fictional record',status:'Prospect',reason:'Captured working notes',version:'0',
+    relationship:'Host research log',request_key:key,...overrides};
+  return new Request(origin+'/tools/organisation/new',{method:'POST',headers:{origin},body:new URLSearchParams(values)});
+}
+
+test('desk records share project scope, support linked tools, and reserve each signed version once',async()=>{
+  const {db,sqlite}=database();
+  sqlite.exec("INSERT INTO accounts (id,email,name,owner) VALUES ('owner','owner@example.com','Owner',1),('editor','edit@example.com','Project Officer',0),('auditor','audit@example.com','Auditor',0)");
+  const project=await saveProject(db,owner,null,null,form());
+  const another=await saveProject(db,owner,null,null,form({title:'Separate project'}));
+  for(const [account,role] of [[editor,'Project manager'],[auditor,'Auditor']]){
+    sqlite.prepare('INSERT INTO project_grants (account_id,project_id,role) VALUES (?,?,?)').run(account.id,project,role);
+  }
+  const key=crypto.randomUUID();
+  const org=await saveDeskRecord(db,owner,null,{kind:'organisation',project},deskForm({},key));
+  assert.equal(await saveDeskRecord(db,owner,null,{kind:'organisation',project},deskForm({},key)),org);
+  await assert.rejects(saveDeskRecord(db,owner,null,{kind:'organisation',project},deskForm({title:'Different entry'},key)),{status:409});
+  const siteData={title:'Pool site',status:'Site brief ready',locality:'Example',related:org,power:'Fibre and power checked',
+    workload:'Batch jobs',heat:'Pool reuse',evidence:'Reference file A'};
+  const site=await saveDeskRecord(db,editor,null,{kind:'site',project},deskForm(siteData));
+  assert.equal((await getDeskRecord(db,auditor,null,site)).related_title,'Fictional record');
+  await assert.rejects(saveDeskRecord(db,owner,null,{kind:'site',project:another},deskForm(siteData)),{status:422});
+  await assert.rejects(saveDeskRecord(db,owner,null,{kind:'site',project,id:site},deskForm(siteData)),{status:400});
+  const edited=await saveDeskRecord(db,editor,null,{kind:'site',project,id:site},deskForm({...siteData,version:'1',heat:'Updated pool reuse'}));
+  assert.equal(edited,site);
+  assert.equal((await deskHistory(db,owner,null,site))[0].actor_name,'Project Officer');
+  assert.equal((await deskHistory(db,owner,null,site))[1].snapshot.data.heat,'Pool reuse');
+  await assert.rejects(saveDeskRecord(db,editor,null,{kind:'site',project,id:site},deskForm({...siteData,version:'1'})),{status:409});
+  const contact={status:'Consented',purpose:'Host discussion',consent:'Fictional permission',
+    consent_date:'2027-02-10',channel:'contact@example.invalid',related:org};
+  const person=await saveDeskRecord(db,owner,null,{kind:'contact',project},deskForm(contact));
+  await assert.rejects(getDeskRecord(db,auditor,null,person),{status:404});
+  await assert.rejects(getDeskRecord(db,owner,{id:project,role:'Auditor'},person),{status:404});
+  await assert.rejects(getDeskRecord(db,editor,{id:another,role:'Auditor'},site),{status:404});
+  assert.equal((await listDeskRecords(db,editor,null,{kind:'site',query:'4183'}))[0].id,site);
+  assert.deepEqual(await deskCounts(db,auditor,null,project),{organisation:1,site:1});
+  assert.equal((await deskCounts(db,owner,null,project)).contact,1);
+});
+
+test('demo has separate desks, visual navigation, and a populated media calendar',async()=>{
+  const programme=await demo.fetch(new Request(origin)).text();
+  assert.match(programme,/Your desks/);
+  assert.match(programme,/Banksia Bend Learning Hub/);
+  assert.match(programme,/desk-sprites\.png/);
+  const media=await demo.fetch(new Request(origin+'/?desk=media&tool=calendar')).text();
+  assert.match(media,/September 2027/);
+  assert.match(media,/Host briefing and photo walk/);
+  const records=await demo.fetch(new Request(origin+'/?desk=records')).text();
+  assert.match(records,/Accept commissioning evidence pack/);
+  assert.doesNotMatch(records,/Add decision/);
+  assert.equal(demo.fetch(new Request(origin+'/tools/site/new',{method:'POST'})).status,405);
 });
