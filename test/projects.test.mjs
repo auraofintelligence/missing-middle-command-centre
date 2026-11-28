@@ -6,10 +6,13 @@ import {accessIdentity,accountFor} from '../src/access.mjs';
 import {readProject,readHistory,listProjects,saveProject,roleView} from '../src/projects.mjs';
 import worker from '../src/worker.mjs';
 import demo from '../src/demo.mjs';
+import {validPassword,reserveAttempt,enrolPassword,passwordSession} from '../src/passwords.mjs';
 
 function database() {
   const sqlite = new DatabaseSync(':memory:');
-  sqlite.exec(readFileSync(new URL('../migrations/0001_projects.sql',import.meta.url),'utf8'));
+  for (const file of ['0001_projects.sql','0002_password_accounts.sql']) {
+    sqlite.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
+  }
   const db = {
     prepare(sql) {
       const statement = sqlite.prepare(sql);
@@ -94,7 +97,11 @@ test('Access claims must match the trusted application and a valid signature', a
   const issuer = 'https://test-identity.cloudflareaccess.com';
   const env = {ACCESS_ISSUER:issuer,ACCESS_AUD:'expected-audience'};
   const now = Math.floor(Date.now()/1000);
-  t.mock.method(globalThis,'fetch', async url => {
+  t.mock.method(globalThis,'fetch', async (url,options) => {
+    assert.equal(options.redirect,'manual');
+    if (url === 'https://redirected-keys.cloudflareaccess.com/cdn-cgi/access/certs') {
+      return Response.redirect(issuer+'/cdn-cgi/access/certs');
+    }
     assert.equal(url,issuer+'/cdn-cgi/access/certs');
     return Response.json({keys:[{...key,kid:'test-key',use:'sig'}]});
   });
@@ -111,6 +118,11 @@ test('Access claims must match the trusted application and a valid signature', a
   for (const claims of [{iss:'https://other.cloudflareaccess.com'},{exp:now-1},{aud:['different-app']},{type:'org'}]) {
     assert.equal(await accessIdentity(await request(claims),env),null);
   }
+  const redirectedIssuer = 'https://redirected-keys.cloudflareaccess.com';
+  let rejection;
+  assert.equal(await accessIdentity(await request({iss:redirectedIssuer}),
+    {...env,ACCESS_ISSUER:redirectedIssuer},reason => { rejection = reason; }),null);
+  assert.equal(rejection,'signing_keys_unavailable');
   const token = (await request()).headers.get('Cf-Access-Jwt-Assertion');
   const cookie = value => new Request(origin,{headers:{Cookie:value}});
   assert.equal((await accessIdentity(cookie('preferences=on; CF_Authorization='+token),env)).subject,'test-subject');
@@ -139,4 +151,50 @@ test('fictional demo has no write or export route',async () => {
   assert.match(await start.text(),/Wattle Reach Aquatic Centre/);
   assert.equal(demo.fetch(new Request(origin+'/projects',{method:'POST'})).status,405);
   assert.equal(demo.fetch(new Request(origin+'/exports')).status,404);
+});
+
+test('Unicode passwords preserve boundary spaces and count code points',()=>{
+  for (const value of [' ','  é  ','🔑'.repeat(128)]) assert.equal(validPassword(value),true);
+  for (const value of ['',null,'🔑'.repeat(129),'\ud800']) assert.equal(validPassword(value),false);
+});
+
+test('abandoned attempts occupy three shared slots and blocked requests do not extend the window',async ()=>{
+  const {db,sqlite}=database();
+  sqlite.exec("INSERT INTO accounts (id,email,name,owner) VALUES ('owner','owner@example.com','Owner',1),('other','other@example.com','Other',0)");
+  const start=1_000_000, duration=900_000;
+  const attempts=await Promise.all(Array.from({length:5},()=>reserveAttempt(db,'owner',start)));
+  assert.equal(attempts.filter(Boolean).length,3);
+  assert.equal((await reserveAttempt(db,'other',start)).attempts,1);
+  assert.equal(await reserveAttempt(db,'owner',start+duration-1),null);
+  const next=await reserveAttempt(db,'owner',start+duration);
+  assert.equal(next.attempts,1);
+  assert.equal(next.expires_at,start+2*duration);
+});
+
+test('sign-in and confirmation share attempts and use a revocable session',async ()=>{
+  const {db,sqlite}=database();
+  sqlite.exec("INSERT INTO accounts (id,email,name,owner) VALUES ('owner','owner@example.com','Owner',1)");
+  const password='  a 🔑  ';
+  assert.equal((await enrolPassword(db,'owner',password)).version,1);
+  const env={APP_HOST:'command.example.com',ACCESS_ISSUER:'https://team.cloudflareaccess.com',ACCESS_AUD:'app',PASSWORD_AUTH:'enabled',DB:db};
+  const request=(route,values,cookie)=>new Request(origin+route,values?{
+    method:'POST',headers:{origin,...(cookie?{cookie}:{})},body:new URLSearchParams(values)
+  }:{headers:cookie?{cookie}:{}});
+  const login=value=>worker.fetch(request('/account/login',{email:'owner@example.com',password:value}),env);
+  assert.equal((await worker.fetch(request('/'),env)).headers.get('Location'),'/account/login');
+  const page=await worker.fetch(request('/account/login'),env);
+  assert.match(page.headers.get('Content-Security-Policy'),/script-src 'nonce-/);
+  assert.match(await page.text(),/aria-label="Show password"/);
+  assert.equal((await login(password.trim())).status,401);
+  const signedIn=await login(password);
+  assert.equal(signedIn.status,303);
+  const cookie=signedIn.headers.get('Set-Cookie').split(';')[0];
+  assert.equal((await passwordSession(db,request('/',null,cookie))).id,'owner');
+  assert.equal((await worker.fetch(request('/',null,cookie),env)).status,200);
+  assert.equal((await worker.fetch(request('/account/confirm',{password:'wrong'},cookie),env)).status,401);
+  assert.equal((await login('wrong from another device')).status,401);
+  assert.equal((await worker.fetch(request('/account/password',{password:'wrong again'},cookie),env)).status,401);
+  assert.equal((await worker.fetch(request('/account/confirm',{password},cookie),env)).status,429);
+  assert.equal((await worker.fetch(request('/account/sign-out',{},cookie),env)).status,303);
+  assert.equal(await passwordSession(db,request('/',null,cookie)),null);
 });

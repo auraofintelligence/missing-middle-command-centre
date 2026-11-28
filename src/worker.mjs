@@ -1,4 +1,6 @@
 import {accessIdentity,accountFor} from './access.mjs';
+import {accountRoute} from './account.mjs';
+import {passwordSession} from './passwords.mjs';
 import {Problem,roleView,listProjects,readProject,readHistory,canEdit,saveProject} from './projects.mjs';
 import {desks,page,portfolio,detail,editor,projectUrl} from './views.mjs';
 
@@ -10,7 +12,10 @@ export const headers = {
   'Referrer-Policy':'no-referrer',
   'X-Robots-Tag':'noindex, nofollow'
 };
-export function html(body,status=200) { return new Response(body,{status,headers}); }
+export function html(body,status=200,nonce) {
+  const responseHeaders=nonce?{...headers,'Content-Security-Policy':headers['Content-Security-Policy']+"; script-src 'nonce-"+nonce+"'"}:headers;
+  return new Response(body,{status,headers:responseHeaders});
+}
 function failure(status,message) {
   return new Response(message,{status,headers:{...headers,'Content-Type':'text/plain; charset=utf-8'}});
 }
@@ -18,25 +23,38 @@ function failure(status,message) {
 const projectPath = /^\/projects\/([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})(\/edit)?$/;
 
 export default {
-  async fetch(request,env) {
+  async fetch(request,env,ctx) {
     const url = new URL(request.url);
     if (!env.APP_HOST || url.host !== env.APP_HOST || url.protocol !== 'https:') return failure(404,'Workspace not found.');
     if (!env.DB || !env.ACCESS_ISSUER || !env.ACCESS_AUD) return failure(503,'Workspace setup is incomplete.');
     try {
-      let sessionIssue;
-      const identity = await accessIdentity(request,env,reason => { sessionIssue = reason; });
-      if (!identity) {
-        console.warn('Command centre Access verification',sessionIssue);
-        return html(page({
-          title:'Sign-in needed',
-          description:sessionIssue === 'missing_session'
-            ? 'The workspace did not receive a Cloudflare Access session.'
-            : 'The workspace could not verify your Cloudflare Access session.',
-          body:'<section class="card"><p>Open the workspace again in the same browser you used for your one-time code.</p><a class="button" href="/">Open workspace</a></section>'
-        }),401);
+      let account;
+      if (env.PASSWORD_AUTH==='enabled') {
+        const session=await passwordSession(env.DB,request);
+        if (url.pathname==='/account'||url.pathname.startsWith('/account/')) {
+          if (request.method==='POST' && (url.searchParams.has('preview')||url.searchParams.has('scope'))) return failure(403,'Role preview is view only.');
+          const renderAccount=(title,description,body,status,identity,nonce)=>
+            html(page({title,description,body,account:identity}),status,nonce);
+          return await accountRoute(request,env,ctx,session,renderAccount);
+        }
+        if(!session) return new Response(null,{status:303,headers:{...headers,Location:'/account/login'}});
+        account=session;
+      } else {
+        let sessionIssue;
+        const identity = await accessIdentity(request,env,reason => { sessionIssue = reason; });
+        if (!identity) {
+          console.warn('Command centre Access verification',sessionIssue);
+          return html(page({
+            title:'Sign-in needed',
+            description:sessionIssue === 'missing_session'
+              ? 'The workspace did not receive a Cloudflare Access session.'
+              : 'The workspace could not verify your Cloudflare Access session.',
+            body:'<section class="card"><p>Open the workspace in the browser where you’re signed in to Cloudflare.</p><a class="button" href="/">Open workspace</a></section>'
+          }),401);
+        }
+        account = await accountFor(env.DB,identity);
+        if (!account) return failure(403,'This account does not have workspace access.');
       }
-      const account = await accountFor(env.DB,identity);
-      if (!account) return failure(403,'This account does not have workspace access.');
       const preview = roleView(url,account);
       const requestedDesk = url.searchParams.get('desk');
       const desk = Object.hasOwn(desks,requestedDesk) ? requestedDesk : 'programme';

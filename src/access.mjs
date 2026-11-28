@@ -11,7 +11,7 @@ async function signingKeys(issuer, refresh = false) {
   const existing = keySets.get(issuer);
   if (!refresh && existing && existing.until > Date.now()) return existing.keys;
   const response = await fetch(issuer + '/cdn-cgi/access/certs', {
-    redirect:'error', signal:AbortSignal.timeout(4500)
+    redirect:'manual', signal:AbortSignal.timeout(4500)
   });
   if (!response.ok) throw new Error('Access keys unavailable');
   const {keys} = await response.json();

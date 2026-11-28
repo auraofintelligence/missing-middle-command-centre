@@ -82,7 +82,7 @@ export function page({title,description,desk,preview,account,demo=false,body}) {
   return `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex, nofollow"><title>${escape(title)} | Missing Middle</title><style>${css}</style></head>
   <body id="top"><header><div class="brand"><span class="mark" aria-hidden="true"></span><a href="${escape(deskUrl('programme',preview))}">Missing Middle Command Centre</a></div>
-  <span>${demo?'Webmaster demo':escape(account?.name || 'Private workspace')}${!demo&&account?.owner?' · Webmaster':''}</span></header>
+  <span>${demo?'Webmaster demo':escape(account?.name || 'Private workspace')}${!demo&&account?.owner?' · Webmaster':''}${account?.passwordSignIn?' · <a href="/account">Account</a>':''}</span></header>
   <div class="shell"><nav aria-label="Desks"><h2>Desks</h2><div>${navigation}</div></nav><main id="main">
   <div class="hero"><h1>${escape(title)}</h1><p>${escape(description)}</p></div>${notice}${body}</main></div>
   <footer>Missing Middle Infrastructure · <a href="#top">Back to top</a></footer></body></html>`;
@@ -110,7 +110,7 @@ export function portfolio(projects,{desk,query='',cursor,preview,account,demo=fa
   const actions = `<div class="controls"><form method="get" action="/">${hidden}<label>Find a project
     <input type="search" name="q" value="${escape(query)}" maxlength="100" placeholder="Name, locality or postcode"></label><button>Search</button></form>
     ${canCreate?`<a class="button secondary" href="/projects/new${escape(q({desk}))}">New project</a>`:''}</div>`;
-  return `${actions}${previewBox}${signOut?'<p><a href="/cdn-cgi/access/logout">Sign out of Cloudflare Access</a></p>':''}
+  return `${actions}${previewBox}${signOut&&!account?.passwordSignIn?'<p><a href="/cdn-cgi/access/logout">Sign out of Cloudflare Access</a></p>':''}
     ${html?'<section class="cards" aria-label="Projects">'+html+'</section>':'<p class="card">No projects match this view.</p>'}
     ${next}${cursor?`<p><a href="${escape(deskUrl(desk,preview,query))}">Back to newest projects</a></p>`:''}`;
 }
