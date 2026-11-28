@@ -2,7 +2,7 @@
 
 | Surface | URL | Cloudflare version |
 | --- | --- | --- |
-| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `3ff4d56b-a951-4638-9eeb-b2bd1e00370e` |
+| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `a07e56fb-d535-4305-9d86-6e52964e62c0` |
 | Fictional demo | [Open demo](https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/) | `65e76b17-eb44-4bd6-9759-c87592cd408f` |
 
 The private Worker runs `src/worker.mjs` with the dedicated `DB` binding, `nodejs_compat` and `PASSWORD_AUTH=enabled`. Cloudflare Access protects `/account/setup` using the Cloudflare account identity provider and a rule for the owner's email. The Worker independently validates the Access token before enrolling the existing authorised account. The hosted sign-in form and other private routes use application sessions. Both Workers have preview URLs disabled.
@@ -19,7 +19,7 @@ D1 reserves an attempt before verification, so an abandoned submission that reac
 2. Use [Sign in](https://missing-middle-command-centre.auraofintelligence.workers.dev/account/login) for future sessions. Open **Account** to confirm, change your password or sign out.
 3. Before adding operational records, create and edit a fictional project and confirm that it survives reloads and shows the signed revision.
 
-GitHub Actions exercised password validation, attempt-window behaviour, confirmation and session lifecycle. Cloudflare ran the actual password hashing code. A signed-out request for the live project creation route redirected to the password form and showed the eye control. The owner’s live enrolment and first project save have not yet been observed.
+GitHub Actions exercised password validation, attempt-window behaviour, confirmation and session lifecycle. Cloudflare ran the actual password hashing code. A signed-out request for the live project creation route redirected to the password form and showed the eye control. Cloudflare Browser Rendering reproduced the original native form rejection and verified that the same-origin referrer policy lets the form reach password verification. The Worker still requires a matching Origin on form POSTs. The owner’s live enrolment and first project save have not yet been observed.
 
 ## Updating or rolling back
 

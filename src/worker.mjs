@@ -9,7 +9,8 @@ export const headers = {
   'Content-Type':'text/html; charset=utf-8',
   'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
   'X-Content-Type-Options':'nosniff',
-  'Referrer-Policy':'no-referrer',
+  // Native same-origin POSTs need their Origin header for form validation.
+  'Referrer-Policy':'same-origin',
   'X-Robots-Tag':'noindex, nofollow'
 };
 export function html(body,status=200,nonce) {

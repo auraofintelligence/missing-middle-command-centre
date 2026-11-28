@@ -183,6 +183,15 @@ test('sign-in and confirmation share attempts and use a revocable session',async
   const login=value=>worker.fetch(request('/account/login',{email:'owner@example.com',password:value}),env);
   assert.equal((await worker.fetch(request('/'),env)).headers.get('Location'),'/account/login');
   const page=await worker.fetch(request('/account/login'),env);
+  assert.equal(page.headers.get('Referrer-Policy'),'same-origin');
+  for (const invalidOrigin of [null,'null','https://elsewhere.example']) {
+    const post=new Request(origin+'/account/login',{
+      method:'POST',
+      headers:invalidOrigin===null?{}:{Origin:invalidOrigin},
+      body:new URLSearchParams({email:'owner@example.com',password})
+    });
+    assert.equal((await worker.fetch(post,env)).status,403);
+  }
   assert.match(page.headers.get('Content-Security-Policy'),/script-src 'nonce-/);
   assert.match(await page.text(),/aria-label="Show password"/);
   assert.equal((await login(password.trim())).status,401);
