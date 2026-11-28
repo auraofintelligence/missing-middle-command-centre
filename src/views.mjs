@@ -83,6 +83,8 @@ footer{max-width:84rem;margin:auto;padding:0 1rem 1.5rem;color:var(--muted)}
 .tile[aria-current]{border-color:var(--sea);border-top:3px solid var(--sea);background:var(--tint)}
 .tile h3{font-size:1rem;margin:.35rem 0}.tile p{font-size:.87rem;color:var(--muted);margin:0}
 .tile-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem}.tile-head .desk-sprite{width:3.4rem;height:3.4rem}
+.tool-sprite{display:inline-block;width:2.7rem;height:2.7rem;flex:none;border-radius:.45rem;background:#edf3ee url('https://raw.githubusercontent.com/auraofintelligence/missing-middle-command-centre/main/assets/tool-sprites.png') var(--sx) var(--sy)/400% 400% no-repeat}
+.tool-label{display:flex;align-items:center;gap:.45rem}
 .stat strong{display:block;font-size:1.6rem;line-height:1.2}.stat span{color:var(--muted);font-size:.92rem}
 .desk-section{background:var(--surface);border:1px solid var(--line);border-radius:.9rem;margin:1.3rem 0;overflow:hidden}
 .section-heading{background:var(--navwash);padding:1rem 1.15rem;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap}

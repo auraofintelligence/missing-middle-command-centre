@@ -74,9 +74,13 @@ function calendar(records,o) {
     <div class="month-grid" aria-label="${heading}">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>'<div class="weekday">'+d+'</div>').join('')}
     ${'<div aria-hidden="true"></div>'.repeat(blank)}${cells}</div>`;
 }
+function toolSprite(kind){
+  const index=Object.keys(tools).indexOf(kind);
+  return `<span class="tool-sprite" style="--sx:${index%4*100/3}%;--sy:${Math.floor(index/4)*100/3}%" aria-hidden="true"></span>`;
+}
 function toolCards(kinds,active,counts,o){
   return `<div class="tool-grid">${kinds.map(k=>`<a class="tile" href="${esc(deskLink(o,o.desk,k,{cursor:''}))}"${active===k?' aria-current="page"':''}>
-    <div class="tile-head"><h3>${esc(tools[k][1])}</h3>${status(String(counts[k]||0))}</div><p>${esc(tools[k][2])}</p></a>`).join('')}</div>`;
+    <div class="tile-head"><div class="tool-label">${toolSprite(k)}<h3>${esc(tools[k][1])}</h3></div>${status(String(counts[k]||0))}</div><p>${esc(tools[k][2])}</p></a>`).join('')}</div>`;
 }
 function deskIndex(o){
   return section('Your desks','Open a desk to work on the current project or across the portfolio.',
@@ -142,7 +146,7 @@ export function projectTools(project,counts,o){
   const available=Object.keys(tools).filter(k=>counts[k]&&!(!o.showContacts&&k==='contact'));
   const body=`<div class="tool-grid">${(available.length?available:['opportunity','site','milestone','decision']).map(kind=>
     `<a class="tile" href="${esc(deskLink(o,tools[kind][0],kind,{project:project.id,cursor:'',query:''}))}">
-      <h3>${esc(tools[kind][1])}</h3><p>${counts[kind]??0} linked records</p></a>`).join('')}</div>`;
+      <div class="tool-label">${toolSprite(kind)}<h3>${esc(tools[kind][1])}</h3></div><p>${counts[kind]??0} linked records</p></a>`).join('')}</div>`;
   return section('Project desks','Work across the same project record.',body);
 }
 function showData(record){
