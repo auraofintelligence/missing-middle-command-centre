@@ -377,3 +377,24 @@ test('smaller-area review supports a zero cutoff and forwards chosen areas to co
   assert.match(compared,/id="catchment-results"/);
   assert.match(compared,/9,305/);
 });
+
+test('larger-area view includes only 2021 populations of at least 10,000 across the register, map and CSV',async()=>{
+  const settings=coverageOptions(new URLSearchParams('band=large&small=1&max=0'));
+  const rows=filteredAreas(settings);
+  assert.equal(settings.band,'large');
+  assert.equal(settings.sort,'census');
+  assert.equal(settings.direction,'desc');
+  assert.ok(rows.length>0&&rows.every(row=>row[1]>=10000));
+  assert.equal(rows.length,filteredAreas(coverageOptions(new URLSearchParams())).filter(row=>row[1]>=10000).length);
+  assert.ok(rows[0][1]>rows.at(-1)[1]);
+  assert.equal(coverageOptions(new URLSearchParams('band=all&small=1')).band,'all');
+  const page=await demo.fetch(new Request(origin+'/coverage?band=large&region=QLD')).text();
+  assert.match(page,/10,000 or more residents in the 2021 Census/);
+  assert.match(page,/<option value="large" selected>10,000 and over/);
+  assert.match(page,/band=large.*#register/);
+  assert.doesNotMatch(page,/<\/i>Under 1,000/);
+  const csv=await demo.fetch(new Request(origin+'/coverage/postal-areas.csv?band=large&region=QLD')).text();
+  const regional=filteredAreas({...settings,region:'QLD'});
+  assert.ok(regional.length>0);
+  assert.equal(csv,csvAreas(regional,settings));
+});

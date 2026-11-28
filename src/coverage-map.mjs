@@ -120,25 +120,27 @@ export function activateCoverageMap(root) {
 }
 
 export function activatePopulationScale(form) {
-  const toggle=form.querySelector('[name=small]');
+  const band=form.querySelector('[name=band]');
   const number=form.querySelector('[name=max]');
   const slider=form.querySelector('[data-population-slider]');
   const sort=form.querySelector('[name=sort]');
   const direction=form.querySelector('[name=dir]');
-  function enableReview() {
-    toggle.checked=true;
-    sort.value='census';
-    direction.value='asc';
+  const controls=form.querySelectorAll('[data-population-scale], [data-population-limit]');
+  function updateCutoff(){
+    const small=band.value==='small';
+    for(const control of controls)control.hidden=!small;
+    number.disabled=!small;
   }
-  toggle.addEventListener('change',()=>{if(toggle.checked)enableReview();});
-  slider.addEventListener('input',()=>{
-    if(!toggle.checked)enableReview();
-    number.value=slider.value;
+  band.addEventListener('change',()=>{
+    if(band.value!=='all'){
+      sort.value='census';
+      direction.value=band.value==='large'?'desc':'asc';
+    }
+    updateCutoff();
   });
+  slider.addEventListener('input',()=>{number.value=slider.value;});
   number.addEventListener('input',()=>{
-    if(!number.value||!number.validity.valid)return;
-    if(!toggle.checked)enableReview();
-    slider.value=number.value;
+    if(number.value&&number.validity.valid)slider.value=number.value;
   });
-  slider.closest('[data-population-scale]').hidden=false;
+  updateCutoff();
 }
