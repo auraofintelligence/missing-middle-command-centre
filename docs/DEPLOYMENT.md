@@ -2,8 +2,8 @@
 
 | Surface | URL | Cloudflare version |
 | --- | --- | --- |
-| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `9b7324e2-6b3e-4895-93cd-990b007f6b13` |
-| Fictional demo | [Open demo](https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/) | `4a9bd8b1-94b2-420f-8168-2a0f049ad597` |
+| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `ae9d2ce6-6894-45ed-bd24-e7ae79dcded9` |
+| Fictional demo | [Open demo](https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/) | `993ae164-cb29-488e-9e32-3e70e52672e5` |
 
 The private Worker runs `src/worker.mjs` with the dedicated `DB` binding, `nodejs_compat` and `PASSWORD_AUTH=enabled`. Cloudflare Access protects `/account/setup` using the Cloudflare account identity provider and a rule for the owner's email. The Worker independently validates the Access token before enrolling the existing authorised account. The hosted sign-in form and other private routes use application sessions. Both Workers have preview URLs disabled.
 
@@ -23,8 +23,12 @@ GitHub Actions exercised password validation, attempt-window behaviour, confirma
 
 ## Updating or rolling back
 
-All three D1 migrations are applied. Keep Cloudflare Access and its audience for enrolment. To roll back to Cloudflare-only sign-in, restore the full-hostname Access scope first, then restore the previous Worker version. Leave the database intact.
+All four D1 migrations are applied. Keep Cloudflare Access and its audience for enrolment. To roll back to Cloudflare-only sign-in, restore the full-hostname Access scope first, then restore the previous Worker version. Leave the database intact.
 
 ## Brand artwork
 
 The shared header and browser icon use the command centre artwork in `assets/brand-master.png`. To regenerate the embedded ICO and PNG assets, install Pillow and run `python3 tools/build_brand.py`. The favicon and logo are served on both Worker hostnames before sign-in.
+
+## National Coverage
+
+Both deployments include the generated ABS 2021 reference layer. The private Worker also stores Webmaster catchments and signed changes in D1. The [cloud checks](https://github.com/auraofintelligence/missing-middle-command-centre/actions/runs/46140865290) passed and the map was rendered in Cloudflare Browser Rendering. See [sources and rebuild](NATIONAL-COVERAGE.md).
