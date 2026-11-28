@@ -129,11 +129,12 @@ export function nationalOverview(rows,settings,preview,showSaved){
       ${stat(n(settings.population),'Scenario population','Adjust in the planning filters')}
       ${stat(d(benchmark),'National rack equivalents','One per '+n(settings.rate)+' scenario residents')}
     </div>`+
-    section('Planning filters','Change assumptions without altering the Census baseline.',searchForm(settings,preview))+
+    `<div class="controls">${link('Find a postcode or adjust the scenario','#coverage-filters')}</div>`+
     `<div id="map" class="coverage-grid">`+
     section('National population map','Colour and size represent 2021 usual residents.',coverageMap(rows))+
     section('Regions','Filter the register using 2021 boundaries.',regionPanel(settings,preview))+
     '</div>'+
+    `<div id="coverage-filters">`+section('Planning filters','Change assumptions without altering the Census baseline.',searchForm(settings,preview))+'</div>'+
     `<div id="register">`+section('Postcode and population register','Every mapped area is available here and in the CSV.',
       `<p><strong>${n(rows.length)}</strong> matching areas · <strong>${n(filteredPopulation)}</strong> Census residents in those areas.</p>
       ${manualMissing?`<p class="coverage-result"><strong>No population match for ${esc(settings.prefix)}.</strong> This code has no matching mapped ABS Postal Area in the 2021 dataset.</p>`:''}

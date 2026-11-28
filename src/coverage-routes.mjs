@@ -18,7 +18,7 @@ export function readCoverage(request,headers,account,preview,demo=false){
   const path=url.pathname;
   const ownerView=Boolean(account?.owner&&!preview&&!demo);
   const render=(title,description,body,status=200)=>new Response(request.method==='HEAD'?null:
-    page({title,description,body,account,preview,desk:'places',demo}),{status,headers});
+    page({title,description,body,account,preview,desk:'places',demo,demoNotice:'Read-only demo. Population figures come from the ABS 2021 Census.'}),{status,headers});
   if(!['/coverage','/coverage/compare','/coverage/postal-areas.csv'].includes(path))return null;
   if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed.',{status:405,headers:{...headers,Allow:'GET, HEAD'}});
   if(path==='/coverage/postal-areas.csv'){

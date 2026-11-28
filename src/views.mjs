@@ -125,10 +125,10 @@ export function projectUrl(id, desk, preview, query, cursor, before) {
   return '/projects/' + id + q({desk,...packPreview(preview),q:query,cursor,before});
 }
 
-export function page({title,description,desk,preview,account,demo=false,body,project,context}) {
+export function page({title,description,desk,preview,account,demo=false,body,project,context,demoNotice='Fictional demonstration. Records are view only.'}) {
   const visibleDesks = account||demo ? Object.entries(desks).filter(([key])=>key!=='webmaster'||account?.owner||demo) : [];
   const navigation = visibleDesks.map(([key,[name]])=>`<a href="${escape(deskUrl(key,preview,null,null,project))}"${key===desk?' aria-current="page"':''}>${sprite(key)}${name}</a>`).join('');
-  const notice = demo ? '<aside class="notice">Fictional demonstration. Records are view only.</aside>' : preview ?
+  const notice = demo ? `<aside class="notice">${escape(demoNotice)}</aside>` : preview ?
     `<aside class="notice"><strong>Role preview</strong> · ${escape(preview.role)} · View only · Signed in as ${escape(account.name)}. <a href="/?desk=webmaster">Return to Webmaster</a></aside>` : '';
   return `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex, nofollow">${brandHead}<title>${escape(title)} | Missing Middle</title><style>${css}</style></head>
