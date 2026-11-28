@@ -1,19 +1,26 @@
 # Command centre deployment and acceptance
 
-| Surface | URL | Verified Cloudflare version on 28 November 2026 |
+| Surface | URL | Cloudflare version |
 | --- | --- | --- |
-| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `1f2352c7-0a59-40e1-9a24-72b9d6e7d4d0` |
+| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `3ff4d56b-a951-4638-9eeb-b2bd1e00370e` |
 | Fictional demo | [Open demo](https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/) | `65e76b17-eb44-4bd6-9759-c87592cd408f` |
 
-The private Worker runs `src/worker.mjs` and uses a dedicated D1 database via the `DB` binding. The runtime configuration sets `APP_HOST`, `ACCESS_ISSUER` and `ACCESS_AUD` for that Worker and its Access application. The demo runs `src/demo.mjs` without database bindings. Both use the Cloudflare API deployment route and have preview URLs disabled.
+The private Worker runs `src/worker.mjs` with the dedicated `DB` binding, `nodejs_compat` and `PASSWORD_AUTH=enabled`. Cloudflare Access protects `/account/setup` using the Cloudflare account identity provider and a rule for the owner's email. The Worker independently validates the Access token before enrolling the existing authorised account. The hosted sign-in form and other private routes use application sessions. Both Workers have preview URLs disabled.
 
-The D1 migration at `migrations/0001_projects.sql` is already applied. For a future deployment, run `node --test`, apply any pending migration deliberately, and upload the relevant entry module and its imports. Use separate Worker scopes if enabling GitHub Actions deployment.
+## Password rules
 
-## First signed-in acceptance check
+A password must contain 1 to 128 Unicode code points. Spaces can appear anywhere. Case, composition and old password age do not restrict selection. The inline eye button reveals or conceals each password field without changing its contents. Passkeys and recovery codes are not required for enrolment.
 
-1. Open the private workspace and enter the email for the owner’s Cloudflare account. Use the one-time code Cloudflare sends to that address.
-2. Create a fictional project with a postcode, locality, evidence reference, responsible role, next action and change note. Reload and reopen it from the portfolio.
-3. Add a fictional host, workload and heat use assessment. Move delivery to **Site brief** and check the signed revision.
-4. From **Webmaster**, open an Auditor preview for the same project. Confirm the project is visible and the editing control is absent, then return to Webmaster.
+D1 reserves an attempt before verification, so an abandoned submission that reached the verifier counts. The first start opens a 15-minute window shared by sign-in, password confirmation and password changes. Three starts are allowed. Blocked retries do not change the expiry. Successful verification clears its window. Passwords use salted scrypt. The database stores session token hashes, and changing a password invalidates prior sessions.
 
-The signed-out boundary was checked against the live project creation route. The Worker validates the Cloudflare Access assertion header when present and the signed application session cookie when the header is missing. Both paths use the same signature and application checks. Cloudflare accepted the owner's one-time code before this update, but the Worker did not complete verification. A signed-in retry after this update is pending. Local tests passed for the application token, project scope, revisions and repeat saves. Record the first successful signed-in production save in [build status](BUILD-STATUS.md).
+## First use
+
+1. Open [Set up your password](https://missing-middle-command-centre.auraofintelligence.workers.dev/account/setup). Confirm your Cloudflare account identity and choose the workspace password. This is the one-time enrolment route for the provisioned owner.
+2. Use [Sign in](https://missing-middle-command-centre.auraofintelligence.workers.dev/account/login) for future sessions. Open **Account** to confirm, change your password or sign out.
+3. Before adding operational records, create and edit a fictional project and confirm that it survives reloads and shows the signed revision.
+
+GitHub Actions exercised password validation, attempt-window behaviour, confirmation and session lifecycle. Cloudflare ran the actual password hashing code. A signed-out request for the live project creation route redirected to the password form and showed the eye control. The owner’s live enrolment and first project save have not yet been observed.
+
+## Updating or rolling back
+
+Both D1 migrations are applied. Keep Cloudflare Access and its audience for enrolment. To roll back to Cloudflare-only sign-in, restore the full-hostname Access scope first, then restore the previous Worker version. Leave the database intact.

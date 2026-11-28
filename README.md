@@ -2,7 +2,7 @@
 
 A private project workspace for taking a postcode opportunity through to a documented site brief. [Open the command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) · [Explore the fictional demo](https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/).
 
-This release includes Cloudflare Access sign-in, a dedicated project database, search by name, locality or postcode, separate delivery, funding and co-op stages, signed revisions, and read-only Webmaster project previews.
+This release includes password sign-in, a dedicated project database, search by name, locality or postcode, separate delivery, funding and co-op stages, signed revisions, and read-only Webmaster project previews.
 
 Later releases extend the application to manage the full journey from postcode discovery and candidate location through funding, installation, commissioning and accepted local co-op management. Media and community participation develop alongside delivery.
 
@@ -28,7 +28,7 @@ Later releases extend the application to manage the full journey from postcode d
 
 This repository can remain public while it contains general planning and application source. Revisit visibility before adding confidential implementation material. Keep credentials, contacts, commercial agreements and real project records outside Git.
 
-The deployed workspace requires Cloudflare Access. The signed-out challenge is verified. Complete the first owner sign-in and save a fictional project before entering operational records. See [deployment and acceptance](docs/DEPLOYMENT.md).
+The deployed workspace requires a workspace password. Use [Set up your password](https://missing-middle-command-centre.auraofintelligence.workers.dev/account/setup) once to verify the owner’s Cloudflare account and choose a password. Routine sign-in uses the workspace password. The signed-out redirect is verified. Owner enrolment and a signed-in project save remain to be checked. See [deployment and acceptance](docs/DEPLOYMENT.md).
 
 Run `node --test` with Node 24 or later for the source checks. See [build status](docs/BUILD-STATUS.md) for the current release and outstanding work.
 
