@@ -25,7 +25,16 @@ export function readCoverage(request,headers,account,preview,demo=false){
     return new Response(request.method==='HEAD'?null:csvAreas(filteredAreas(settings),settings),
       {headers:{...headers,'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="missing-middle-postal-areas-2021.csv"'}});
   }
-  if(path==='/coverage')return render(...descriptions[path],nationalOverview(filteredAreas(settings),settings,preview,ownerView));
+  if(path==='/coverage'){
+    const nonce=crypto.randomUUID().replaceAll('-','');
+    const [title,description]=descriptions[path];
+    const body=nationalOverview(filteredAreas(settings),settings,preview,ownerView,nonce);
+    const csp=headers['Content-Security-Policy'];
+    return new Response(request.method==='HEAD'?null:page({title,description,body,account,preview,desk:'places',demo,
+      demoNotice:'Read-only demo. Population figures come from the ABS 2021 Census.'}),{
+      headers:{...headers,'Content-Security-Policy':csp+"; script-src 'nonce-"+nonce+"'"}
+    });
+  }
   const input=(url.searchParams.get('codes')||'').slice(0,1801);
   let codes=[],problem='';
   try{codes=parseCodes(input);}catch(error){problem=error.message;}

@@ -1,5 +1,7 @@
 import {escape as esc,packPreview,q,toAU} from './views.mjs';
-import {coverageMeta,postalAreas,regionPaths,regionNames,stateNames,labels,scale,totals} from './coverage-model.mjs';
+import {coverageMeta,postalAreas,regionPaths,regionNames,stateNames,labels,sortColumns,scale,totals} from './coverage-model.mjs';
+
+import {activateCoverageMap,mapWidth,mapHeight,pointBounds} from './coverage-map.mjs';
 
 const number=new Intl.NumberFormat('en-AU');
 const decimal=new Intl.NumberFormat('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -15,7 +17,20 @@ const styles=`<style>
 .coverage-grid .desk-section{margin-top:0}.coverage-stats{margin:1rem 0}
 .coverage-stat{border-top:4px solid #3bbf9b}.coverage-stat:nth-child(2){border-top-color:#49b7e6}.coverage-stat:nth-child(3){border-top-color:#ab79d7}.coverage-stat:nth-child(4){border-top-color:#d9a355}
 .coverage-stat strong{font-size:clamp(1.4rem,3vw,2rem)}.coverage-stat small{display:block;margin-top:.35rem}
-.coverage-map{display:block;box-sizing:border-box;width:100%;height:auto;background:#112d42;border-radius:.7rem;padding:.4rem}
+.coverage-map{display:block;width:100%;aspect-ratio:790/626;height:auto;background:#112d42;border-radius:.7rem;touch-action:pan-y}
+.coverage-map:focus-visible{outline:3px solid #065f62;outline-offset:3px}
+[data-zoomed=true] .coverage-map{cursor:grab;touch-action:none}
+[data-dragging=true] .coverage-map{cursor:grabbing}
+.coverage-map-toolbar{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-bottom:.65rem}
+.coverage-map-toolbar[hidden]{display:none}
+.coverage-map-toolbar button{min-width:2.75rem;min-height:2.65rem}
+.coverage-map-toolbar button[aria-disabled=true]{opacity:.6}
+.coverage-map-toolbar output{white-space:nowrap;font-size:.85rem;color:#314d55}
+.coverage-map-help{font-size:.85rem;margin:.55rem 0}
+.coverage-sort-link{display:inline-flex;align-items:center;gap:.3rem;color:#15434f;text-decoration:underline;text-underline-offset:.18em}
+.coverage-sort-link[aria-label] span{font-weight:bold}
+.coverage-table th[aria-sort]{background:#deefe8}
+#coverage-filters,#register{scroll-margin-top:1rem}
 .coverage-legend{display:flex;flex-wrap:wrap;gap:.35rem .85rem;margin:.7rem 0;font-size:.78rem}
 .coverage-legend span{display:inline-flex;align-items:center;gap:.35rem}.coverage-legend i{width:.65rem;height:.65rem;border-radius:100%;display:inline-block;border:1px solid #527180}
 .coverage-regions{display:grid;grid-template-columns:1fr;gap:.45rem}
@@ -41,7 +56,7 @@ function stat(value,label,detail=''){
 }
 export function coverageUrl(path,settings,preview,changes={}){
   const m={...settings,...changes};
-  return path+q({q:m.prefix,region:m.region,sort:m.sort==='code'?'':m.sort,population:m.population,rate:m.rate,
+  return path+q({q:m.prefix,region:m.region,sort:m.sort==='code'?'':m.sort,dir:m.direction==='desc'?'desc':'',population:m.population,rate:m.rate,
     page:m.page>1?m.page:'',...packPreview(preview),codes:m.codes,before:m.before});
 }
 const link=(title,url,active=false)=>`<a class="button secondary" href="${esc(url)}"${active?' aria-current="page"':''}>${esc(title)}</a>`;
@@ -65,15 +80,29 @@ function mapLayers(rows){
     while(i<4&&population>=bins[i+1][1])i++;
     points[i].push(`M${x},${y}h.01`);
   }
-  return points.map((parts,i)=>parts.length?`<path d="${parts.join('')}" stroke="${palette[i]}" stroke-width="${2*size[i]}"/>`:'').join('');
+  return points.map((parts,i)=>parts.length?`<path d="${parts.join('')}" stroke="${palette[i]}" stroke-width="${2*size[i]}" vector-effect="non-scaling-stroke"/>`:'').join('');
 }
 const completeLayers=mapLayers(postalAreas);
-function coverageMap(rows){
+function coverageMap(rows,nonce){
+  const bounds=pointBounds(rows);
   const mark=rows.length===1&&rows[0][2]!==null?
-    `<circle cx="${rows[0][2]}" cy="${rows[0][3]}" r="7" stroke="#fff" stroke-width="1.7" fill="none"/>`:'';
-  return `<svg class="coverage-map" viewBox="0 0 790 626" role="img" aria-label="Map of Australian Postal Areas by 2021 population. Read the register for individual counts.">
-  <g fill="#26465c" stroke="#6d8b9b" stroke-width="1">${countrySvg}</g>
-  <g fill="none" opacity=".84" stroke-linecap="round">${rows.length===postalAreas.length?completeLayers:mapLayers(rows)}</g>${mark}</svg>
+    `<circle data-map-focus cx="${rows[0][2]}" cy="${rows[0][3]}" r="7" stroke="#fff" stroke-width="1.7" fill="none" vector-effect="non-scaling-stroke"/>`:'';
+  return `<div id="coverage-zoom" data-extent="${bounds?.join(',')||''}">
+  <div class="coverage-map-toolbar" role="group" aria-label="Map zoom controls" data-map-toolbar hidden>
+    <button type="button" data-map-action="in" aria-label="Zoom in">+</button>
+    <button type="button" data-map-action="out" aria-label="Zoom out">−</button>
+    <button type="button" data-map-action="fit"${bounds?'':' disabled'}>Fit results</button>
+    <button type="button" data-map-action="reset">Reset map</button>
+    <output data-map-status aria-live="polite">Zoom 100%</output>
+  </div>
+  <svg class="coverage-map" viewBox="0 0 ${mapWidth} ${mapHeight}" role="img"
+    aria-label="Map of Australian Postal Areas by 2021 population" aria-describedby="coverage-map-help">
+    <g fill="#26465c" stroke="#6d8b9b" stroke-width="1">${countrySvg}</g>
+    <g fill="none" opacity=".84" stroke-linecap="round">${rows.length===postalAreas.length?completeLayers:mapLayers(rows)}</g>${mark}
+  </svg>
+  <p id="coverage-map-help" class="coverage-map-help">Zoom with + or −, then drag or use the arrow keys. Fit results shows the areas that match your filters.</p>
+  ${nonce?`<script nonce="${nonce}">(${activateCoverageMap.toString()})(document.getElementById('coverage-zoom'));</script>`:''}
+  </div>
   <div class="coverage-legend">${bins.map(([label],i)=>`<span><i style="background:${palette[i]}"></i>${label}</span>`).join('')}</div>
   <p class="muted">Each dot marks a representative point for a 2021 ABS Postal Area. The register also includes the ${n(coverageMeta.notOnMap)} areas outside this national map frame.</p>`;
 }
@@ -86,17 +115,28 @@ function regionPanel(settings,preview){
 }
 const opts=(items,selected)=>items.map(([value,label])=>`<option value="${esc(value)}"${selected===value?' selected':''}>${esc(label)}</option>`).join('');
 function searchForm(settings,preview){
-  return `<form class="coverage-form" method="get" action="/coverage">${preserve(preview)}
+  return `<form class="coverage-form" method="get" action="/coverage#coverage-filters">${preserve(preview)}
     <label>Postcode or prefix<input type="search" name="q" inputmode="numeric" maxlength="4" value="${esc(settings.prefix)}" placeholder="e.g. 4183"></label>
     <label>State or territory<select name="region">${opts([['','All of Australia'],...regionNames.map(r=>[r,labels[r]])],settings.region)}</select></label>
-    <label>Sort by<select name="sort">${opts([['code','Postal Area code'],['high','Population, high to low'],['low','Population, low to high']],settings.sort)}</select></label>
+    <label>Sort by<select name="sort">${opts(Object.entries(sortColumns),settings.sort)}</select></label>
+    <label>Order<select name="dir">${opts([['asc','Ascending'],['desc','Descending']],settings.direction)}</select></label>
     <label>National scenario population<input name="population" type="number" min="1000000" max="100000000" value="${settings.population}" required></label>
     <label>Residents per rack<input name="rate" type="number" min="100" max="1000000" value="${settings.rate}" required></label>
     <button type="submit">Apply</button></form>`;
 }
-function columns(rows,settings,preview){
+function columns(rows,settings,preview,sortable=false){
+  const headings=Object.entries(sortColumns).map(([key,label])=>{
+    if(!sortable)return `<th scope="col">${esc(label)}</th>`;
+    const active=settings.sort===key;
+    const next=active?(settings.direction==='asc'?'desc':'asc'):['code','region'].includes(key)?'asc':'desc';
+    const aria=active?` aria-sort="${settings.direction==='asc'?'ascending':'descending'}"`:'';
+    const href=coverageUrl('/coverage',settings,preview,{sort:key,direction:next,page:1})+'#register';
+    const arrow=active?(settings.direction==='asc'?'↑':'↓'):'↕';
+    return `<th scope="col"${aria}><a class="coverage-sort-link" href="${esc(href)}"
+      aria-label="Sort by ${esc(label)}, ${next==='asc'?'ascending':'descending'}">${esc(label)} <span aria-hidden="true">${arrow}</span></a></th>`;
+  }).join('');
   return `<div class="coverage-table-wrap"><table class="coverage-table">
-    <thead><tr><th scope="col">Postal Area</th><th scope="col">Region</th><th scope="col">2021 residents</th><th scope="col">Scenario residents</th><th scope="col">Rack equivalents</th></tr></thead><tbody>
+    <thead><tr>${headings}</tr></thead><tbody>
     ${rows.map(row=>{
       const scenario=scale(row[1],settings);
       const href=coverageUrl('/coverage',settings,preview,{prefix:row[0],region:'',page:1})+'#register';
@@ -116,7 +156,7 @@ function methodology(){
     <li>Source data: Australian Bureau of Statistics, 2021 Census and ASGS Edition 3, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Map outlines, display points and scenario figures are derived.</li>
     </ul></details>`;
 }
-export function nationalOverview(rows,settings,preview,showSaved){
+export function nationalOverview(rows,settings,preview,showSaved,nonce){
   const first=(settings.page-1)*40,paged=rows.slice(first,first+40), pages=Math.max(1,Math.ceil(rows.length/40));
   const manualMissing=settings.prefix.length===4&&/^\d{4}$/.test(settings.prefix)&&!postalAreas.some(row=>row[0]===settings.prefix);
   const filteredPopulation=rows.reduce((sum,row)=>sum+(row[1]??0),0);
@@ -131,14 +171,14 @@ export function nationalOverview(rows,settings,preview,showSaved){
     </div>`+
     `<div class="controls">${link('Find a postcode or adjust the scenario','#coverage-filters')}</div>`+
     `<div id="map" class="coverage-grid">`+
-    section('National population map','Colour and size represent 2021 usual residents.',coverageMap(rows))+
+    section('National population map','Colour and size represent 2021 usual residents.',coverageMap(rows,nonce))+
     section('Regions','Filter the register using 2021 boundaries.',regionPanel(settings,preview))+
     '</div>'+
     `<div id="coverage-filters">`+section('Planning filters','Change assumptions without altering the Census baseline.',searchForm(settings,preview))+'</div>'+
     `<div id="register">`+section('Postcode and population register','Every mapped area is available here and in the CSV.',
       `<p><strong>${n(rows.length)}</strong> matching areas · <strong>${n(filteredPopulation)}</strong> Census residents in those areas.</p>
       ${manualMissing?`<p class="coverage-result"><strong>No population match for ${esc(settings.prefix)}.</strong> This code has no matching mapped ABS Postal Area in the 2021 dataset.</p>`:''}
-      ${paged.length?columns(paged,settings,preview):rows.length?'<p>This page is outside the selected results.</p>':'<p>Try another four-digit code or prefix.</p>'}
+      ${paged.length?columns(paged,settings,preview,true):rows.length?'<p>This page is outside the selected results.</p>':'<p>Try another four-digit code or prefix.</p>'}
       <div class="controls">
       ${settings.page>1?link('Previous page',coverageUrl('/coverage',settings,preview,{page:Math.min(pages,settings.page-1)})+'#register'):''}
       ${settings.page<pages?link('Next page',coverageUrl('/coverage',settings,preview,{page:settings.page+1})+'#register'):''}

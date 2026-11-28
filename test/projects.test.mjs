@@ -8,6 +8,7 @@ import worker from '../src/worker.mjs';
 import demo from '../src/demo.mjs';
 import {coverageMeta,filteredAreas,options as coverageOptions,parseCodes,scale,totals,csvAreas} from '../src/coverage-model.mjs';
 import {saveCatchment,catchmentHistory,listCatchments} from '../src/coverage-catchments.mjs';
+import {pointBounds} from '../src/coverage-map.mjs';
 import {saveDeskRecord,getDeskRecord,listDeskRecords,deskCounts,deskHistory} from '../src/desk-records.mjs';
 import {validPassword,reserveAttempt,enrolPassword,passwordSession} from '../src/passwords.mjs';
 
@@ -333,4 +334,25 @@ test('only the Webmaster saves coverage catchments and every revision preserves 
   assert.equal(saved.source_version,coverageMeta.version);
   assert.deepEqual(saved.postcodes,['4183','9999']);
   assert.deepEqual((await catchmentHistory(db,owner,null,id))[1].snapshot.postcodes,['0800','4183']);
+});
+
+test('coverage sorts both ways, retains filters, and anchors Apply and table navigation',async()=>{
+  const settings=coverageOptions(new URLSearchParams('region=QLD&sort=census&dir=desc&population=32000000'));
+  const down=filteredAreas(settings),up=filteredAreas({...settings,direction:'asc'});
+  assert.ok(down.length>100&&down[0][1]>down.at(-1)[1]);
+  assert.deepEqual(down.map(row=>row[1]),up.map(row=>row[1]).reverse());
+  assert.equal(coverageOptions(new URLSearchParams('sort=high')).direction,'desc');
+  const byCode=filteredAreas({...settings,region:'',sort:'code'});
+  assert.ok(byCode[0][0]>byCode.at(-1)[0]);
+  const area=filteredAreas({...settings,prefix:'4183'});
+  assert.deepEqual(pointBounds(area),[area[0][2],area[0][3],area[0][2],area[0][3]]);
+  assert.equal(pointBounds([]),null);
+  const response=demo.fetch(new Request(origin+'/coverage?region=QLD&sort=census&dir=desc&population=32000000'));
+  const page=await response.text();
+  assert.match(page,/action="\/coverage#coverage-filters"/);
+  assert.match(page,/aria-sort="descending"/);
+  assert.match(page,/region=QLD&amp;sort=census&amp;population=32000000&amp;rate=10000#register/);
+  assert.match(page,/Fit results/);
+  const nonce=/script-src 'nonce-([^']+)'/.exec(response.headers.get('Content-Security-Policy'))?.[1];
+  assert.ok(nonce&&page.includes('<script nonce="'+nonce+'">'));
 });

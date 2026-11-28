@@ -7,6 +7,11 @@ export const byPostcode=new Map(postalAreas.map(row=>[row[0],row]));
 export const labels={NSW:'New South Wales',VIC:'Victoria',QLD:'Queensland',SA:'South Australia',WA:'Western Australia',
   TAS:'Tasmania',NT:'Northern Territory',ACT:'Australian Capital Territory',OT:'Other Territories'};
 export const stateNames=row=>regionNames.filter((_,i)=>row[4]&(1<<i));
+export const sortColumns={code:'Postal Area',region:'Region',census:'2021 residents',scenario:'Scenario residents',racks:'Rack equivalents'};
+const regionSortKey=Object.fromEntries(postalAreas.map(row=>[
+  row[0],stateNames(row).map(name=>labels[name]).sort().join(', ')||null
+]));
+const compare=(a,b)=>a<b?-1:a>b?1:0;
 
 function bound(value,fallback,min,max) {
   if(!/^\d{1,9}$/.test(value||'')) return fallback;
@@ -19,9 +24,11 @@ export function options(params) {
   const prefix=entered.trim().slice(0,24);
   const region=params.get('region')||'';
   const sort=params.get('sort')||'code';
+  const direction=params.get('dir')||(sort==='high'?'desc':'asc');
   return {
     prefix,region:Object.hasOwn(labels,region)?region:'',
-    sort:['code','high','low'].includes(sort)?sort:'code',
+    sort:sort==='high'||sort==='low'?'census':Object.hasOwn(sortColumns,sort)?sort:'code',
+    direction:direction==='desc'?'desc':'asc',
     population:bound(params.get('population'),defaultPopulation,1_000_000,100_000_000),
     rate:bound(params.get('rate'),defaultRate,100,1_000_000),
     page:bound(params.get('page'),1,1,300)
@@ -31,8 +38,16 @@ export function options(params) {
 export function filteredAreas(settings) {
   const bit=settings.region?1<<regionNames.indexOf(settings.region):0;
   const rows=postalAreas.filter(row=>(!bit||(row[4]&bit))&&row[0].startsWith(settings.prefix));
-  if(settings.sort==='high')rows.sort((a,b)=>(b[1]??-1)-(a[1]??-1)||a[0].localeCompare(b[0]));
-  if(settings.sort==='low')rows.sort((a,b)=>(a[1]??Infinity)-(b[1]??Infinity)||a[0].localeCompare(b[0]));
+  const {sort,direction}=settings;
+  const directionFactor=direction==='desc'?-1:1;
+  if(sort==='code')return directionFactor<0?rows.reverse():rows;
+  const value=sort==='region'?row=>regionSortKey[row[0]]:row=>row[1];
+  // Scenario residents and rack equivalents are positive multiples of 2021 residents.
+  rows.sort((a,b)=>{
+    const first=value(a),second=value(b);
+    if(first===null||second===null)return first===second?compare(a[0],b[0]):first===null?1:-1;
+    return directionFactor*compare(first,second)||compare(a[0],b[0]);
+  });
   return rows;
 }
 
