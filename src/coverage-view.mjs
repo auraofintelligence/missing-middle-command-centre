@@ -1,15 +1,16 @@
 import {escape as esc,packPreview,q,toAU} from './views.mjs';
-import {coverageMeta,postalAreas,regionPaths,regionNames,stateNames,labels,sortColumns,scale,totals} from './coverage-model.mjs';
+import {coverageMeta,postalAreas,regionPaths,regionNames,stateNames,labels,sortColumns,smallAreaMaximum,filteredAreas,scale,totals} from './coverage-model.mjs';
 
-import {activateCoverageMap,mapWidth,mapHeight,pointBounds} from './coverage-map.mjs';
+import {activateCoverageMap,activatePopulationScale,mapWidth,mapHeight,pointBounds} from './coverage-map.mjs';
 
 const number=new Intl.NumberFormat('en-AU');
 const decimal=new Intl.NumberFormat('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});
 const n=value=>number.format(Math.round(value));
 const d=value=>decimal.format(value);
-const palette=['#7994a4','#3abd9e','#24aee2','#c08af1','#ffd09a'];
-const size=[1.2,1.55,2.15,2.6,3.3];
+const palette=['#7994a4','#3abd9e','#24aee2','#c08af1','#ffd09a','#f6a6c2','#fff2b9'];
+const size=[1.2,1.55,2.1,2.5,2.8,3.05,3.3];
 const bins=[['Under 1,000',0],['1,000 to 4,999',1000],['5,000 to 9,999',5000],['10,000 to 24,999',10000],['25,000 or more',25000]];
+const smallBins=[['0 residents',0],['1 to 99',1],['100 to 499',100],['500 to 999',500],['1,000 to 2,499',1000],['2,500 to 4,999',2500],['5,000 to 9,999',5000]];
 const styles=`<style>
 .coverage-tabs{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.9rem}
 .coverage-tabs [aria-current]{background:#174a52;color:#fff}
@@ -27,6 +28,14 @@ const styles=`<style>
 .coverage-map-toolbar button[aria-disabled=true]{opacity:.6}
 .coverage-map-toolbar output{white-space:nowrap;font-size:.85rem;color:#314d55}
 .coverage-map-help{font-size:.85rem;margin:.55rem 0}
+.coverage-small-area{display:grid;gap:.65rem;grid-template-columns:minmax(0,1fr) minmax(8rem,13rem);align-items:end;
+  padding:.8rem .9rem;background:#eef8f3;border:1px solid #bbd8cd;border-radius:.65rem}
+.coverage-small-area .review-switch{grid-column:1/-1;display:flex;gap:.55rem;align-items:center}
+.coverage-small-area input[type=checkbox],.coverage-table input[type=checkbox]{width:1.2rem;height:1.2rem;margin:0;accent-color:#0e6667}
+.coverage-small-area input[type=range]{width:100%;accent-color:#0e6667;border:0;padding:0;margin:.45rem 0}
+.coverage-small-area [hidden]{display:none}.coverage-scale-labels{display:flex;justify-content:space-between;color:#415d65;font-size:.78rem}
+.coverage-table .coverage-check-cell{width:4rem;text-align:center}.coverage-check-cell input{display:inline-block}
+@media(max-width:540px){.coverage-small-area{grid-template-columns:1fr}}
 .coverage-sort-link{display:inline-flex;align-items:center;gap:.3rem;color:#15434f;text-decoration:underline;text-underline-offset:.18em}
 .coverage-sort-link[aria-label] span{font-weight:bold}
 .coverage-table th[aria-sort]{background:#deefe8}
@@ -56,7 +65,7 @@ function stat(value,label,detail=''){
 }
 export function coverageUrl(path,settings,preview,changes={}){
   const m={...settings,...changes};
-  return path+q({q:m.prefix,region:m.region,sort:m.sort==='code'?'':m.sort,dir:m.direction==='desc'?'desc':'',population:m.population,rate:m.rate,
+  return path+q({q:m.prefix,region:m.region,sort:m.sort==='code'&&!m.small?'':m.sort,dir:m.direction==='desc'?'desc':'',small:m.small?'1':'',max:m.small?String(m.maximum):'',population:m.population,rate:m.rate,
     page:m.page>1?m.page:'',...packPreview(preview),codes:m.codes,before:m.before});
 }
 const link=(title,url,active=false)=>`<a class="button secondary" href="${esc(url)}"${active?' aria-current="page"':''}>${esc(title)}</a>`;
@@ -72,18 +81,19 @@ const countrySvg=regionNames.map(name=>regionPaths[name]?`<path d="${esc(regionP
 const srcPop='https://www.abs.gov.au/census/find-census-data/datapacks';
 const srcNational='https://www.abs.gov.au/statistics/people/population/population-census/2021';
 const srcGeo='https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs/edition-3-july-2021-june-2026/access-and-downloads/digital-boundary-files';
-function mapLayers(rows){
-  const points=Array.from({length:5},()=>[]);
+function mapLayers(rows,ranges=bins){
+  const points=Array.from({length:ranges.length},()=>[]);
   for(const [,population,x,y] of rows){
     if(x===null||population===null)continue;
     let i=0;
-    while(i<4&&population>=bins[i+1][1])i++;
+    while(i<ranges.length-1&&population>=ranges[i+1][1])i++;
     points[i].push(`M${x},${y}h.01`);
   }
   return points.map((parts,i)=>parts.length?`<path d="${parts.join('')}" stroke="${palette[i]}" stroke-width="${2*size[i]}" vector-effect="non-scaling-stroke"/>`:'').join('');
 }
 const completeLayers=mapLayers(postalAreas);
-function coverageMap(rows,nonce){
+function coverageMap(rows,small){
+  const ranges=small?smallBins:bins;
   const bounds=pointBounds(rows);
   const mark=rows.length===1&&rows[0][2]!==null?
     `<circle data-map-focus cx="${rows[0][2]}" cy="${rows[0][3]}" r="7" stroke="#fff" stroke-width="1.7" fill="none" vector-effect="non-scaling-stroke"/>`:'';
@@ -98,33 +108,41 @@ function coverageMap(rows,nonce){
   <svg class="coverage-map" viewBox="0 0 ${mapWidth} ${mapHeight}" role="img"
     aria-label="Map of Australian Postal Areas by 2021 population" aria-describedby="coverage-map-help">
     <g fill="#26465c" stroke="#6d8b9b" stroke-width="1">${countrySvg}</g>
-    <g fill="none" opacity=".84" stroke-linecap="round">${rows.length===postalAreas.length?completeLayers:mapLayers(rows)}</g>${mark}
+    <g fill="none" opacity=".84" stroke-linecap="round">${!small&&rows.length===postalAreas.length?completeLayers:mapLayers(rows,ranges)}</g>${mark}
   </svg>
   <p id="coverage-map-help" class="coverage-map-help">Zoom with + or −, then drag or use the arrow keys. Fit results shows the areas that match your filters.</p>
-  ${nonce?`<script nonce="${nonce}">(${activateCoverageMap.toString()})(document.getElementById('coverage-zoom'));</script>`:''}
   </div>
-  <div class="coverage-legend">${bins.map(([label],i)=>`<span><i style="background:${palette[i]}"></i>${label}</span>`).join('')}</div>
+  <div class="coverage-legend">${ranges.map(([label],i)=>`<span><i style="background:${palette[i]}"></i>${label}</span>`).join('')}</div>
   <p class="muted">Each dot marks a representative point for a 2021 ABS Postal Area. The register also includes the ${n(coverageMeta.notOnMap)} areas outside this national map frame.</p>`;
 }
 const regionCounts=Object.fromEntries(regionNames.map((name,i)=>[name,postalAreas.filter(row=>row[4]&(1<<i)).length]));
 function regionPanel(settings,preview){
-  const all=[['','All of Australia',coverageMeta.areaCount],...regionNames.map(name=>[name,labels[name],regionCounts[name]])];
+  const reduced=settings.small||settings.prefix?filteredAreas({...settings,region:'',sort:'code'}):null;
+  const all=[['','All of Australia',reduced?.length??coverageMeta.areaCount],
+    ...regionNames.map((name,i)=>[name,labels[name],reduced?reduced.filter(row=>row[4]&(1<<i)).length:regionCounts[name]])];
   return `<div class="coverage-regions">${all.map(([id,label,count])=>`<a class="coverage-region" href="${esc(coverageUrl('/coverage',settings,preview,{region:id,page:1})+'#map')}"
     ${settings.region===id?' aria-current="page"':''}>${esc(label)} <strong>${n(count)}</strong></a>`).join('')}</div>
     <p class="workspace-note">Areas that cross a border appear in more than one regional filter. The national count includes each area once.</p>`;
 }
 const opts=(items,selected)=>items.map(([value,label])=>`<option value="${esc(value)}"${selected===value?' selected':''}>${esc(label)}</option>`).join('');
 function searchForm(settings,preview){
-  return `<form class="coverage-form" method="get" action="/coverage#coverage-filters">${preserve(preview)}
+  return `<form id="coverage-planning-form" class="coverage-form" method="get" action="/coverage#coverage-filters">${preserve(preview)}
     <label>Postcode or prefix<input type="search" name="q" inputmode="numeric" maxlength="4" value="${esc(settings.prefix)}" placeholder="e.g. 4183"></label>
     <label>State or territory<select name="region">${opts([['','All of Australia'],...regionNames.map(r=>[r,labels[r]])],settings.region)}</select></label>
     <label>Sort by<select name="sort">${opts(Object.entries(sortColumns),settings.sort)}</select></label>
     <label>Order<select name="dir">${opts([['asc','Ascending'],['desc','Descending']],settings.direction)}</select></label>
     <label>National scenario population<input name="population" type="number" min="1000000" max="100000000" value="${settings.population}" required></label>
     <label>Residents per rack<input name="rate" type="number" min="100" max="1000000" value="${settings.rate}" required></label>
+    <div class="coverage-small-area span-all">
+      <label class="review-switch"><input type="checkbox" name="small" value="1"${settings.small?' checked':''}> Review areas under 10,000 residents</label>
+      <label data-population-scale hidden>Population scale<input type="range" min="0" max="${smallAreaMaximum}" value="${settings.maximum}" data-population-slider>
+        <span class="coverage-scale-labels"><span>0</span><span>2,500</span><span>5,000</span><span>7,500</span><span>9,999</span></span></label>
+      <label>Maximum residents<input name="max" type="number" min="0" max="${smallAreaMaximum}" step="1" value="${settings.maximum}"></label>
+      <small class="span-all">Applies to 2021 Census counts. At zero, only areas with a recorded zero are shown.</small>
+    </div>
     <button type="submit">Apply</button></form>`;
 }
-function columns(rows,settings,preview,sortable=false){
+function columns(rows,settings,preview,sortable=false,pickable=false){
   const headings=Object.entries(sortColumns).map(([key,label])=>{
     if(!sortable)return `<th scope="col">${esc(label)}</th>`;
     const active=settings.sort===key;
@@ -136,11 +154,12 @@ function columns(rows,settings,preview,sortable=false){
       aria-label="Sort by ${esc(label)}, ${next==='asc'?'ascending':'descending'}">${esc(label)} <span aria-hidden="true">${arrow}</span></a></th>`;
   }).join('');
   return `<div class="coverage-table-wrap"><table class="coverage-table">
-    <thead><tr>${headings}</tr></thead><tbody>
+    <thead><tr>${pickable?'<th scope="col" class="coverage-check-cell">Select</th>':''}${headings}</tr></thead><tbody>
     ${rows.map(row=>{
       const scenario=scale(row[1],settings);
       const href=coverageUrl('/coverage',settings,preview,{prefix:row[0],region:'',page:1})+'#register';
-      return `<tr><th scope="row"><a href="${esc(href)}">${esc(row[0])}</a></th>
+      return `<tr>${pickable?`<td class="coverage-check-cell"><input type="checkbox" name="pick" value="${esc(row[0])}" aria-label="Select Postal Area ${esc(row[0])}"></td>`:''}
+        <th scope="row"><a href="${esc(href)}">${esc(row[0])}</a></th>
         <td>${esc(stateNames(row).join(', ')||'Unmatched')}</td>
         <td>${row[1]===null?'No population match':n(row[1])}</td>
         <td>${scenario?n(scenario.people):'–'}</td><td>${scenario?d(scenario.racks):'–'}</td></tr>`;
@@ -151,7 +170,7 @@ function methodology(){
     <li><a href="${srcPop}">ABS 2021 Census General Community Profile</a>, Postal Areas, G01 Total Persons at place of usual residence. The source is versioned as <code>${esc(coverageMeta.version)}</code>.</li>
     <li><a href="${srcGeo}">ABS ASGS Edition 3 boundaries</a> provide the 2021 Postal Areas and the state and territory outlines. Regions are based on geographic overlap. Some Postal Areas cross regional boundaries. Their resident count is recorded once per Postal Area and is never split or duplicated in the national total.</li>
     <li>ABS Postal Areas approximate geographic delivery postcodes. A number with no matching area may be absent from the 2021 geography or may be a non-geographic postal code. The register does not establish whether a postal code is currently valid.</li>
-    <li>Each area’s scenario population uses its share of the national Census baseline. The scenario holds that share constant and does not predict local growth. Rack equivalents divide that result by the residents-per-rack assumption. Fractions help compare catchments; they are not site commitments.</li>
+    <li>Each area’s scenario population uses its share of the national Census baseline. The scenario holds that share constant and does not predict local growth. Rack equivalents divide that result by the residents-per-rack assumption. Use fractions to compare shared service catchments. Postal Areas do not each need their own rack.</li>
     <li>The <a href="${srcNational}">published national Census count</a> includes people outside mapped Postal Areas. Census perturbation also affects reconciliation, so the national count and the sum of areas are shown separately.</li>
     <li>Source data: Australian Bureau of Statistics, 2021 Census and ASGS Edition 3, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Map outlines, display points and scenario figures are derived.</li>
     </ul></details>`;
@@ -162,6 +181,11 @@ export function nationalOverview(rows,settings,preview,showSaved,nonce){
   const filteredPopulation=rows.reduce((sum,row)=>sum+(row[1]??0),0);
   const unmapped=Math.max(0,coverageMeta.nationalPopulation-coverageMeta.mappedPopulation);
   const benchmark=settings.population/settings.rate;
+  const register=paged.length&&settings.small?`<form method="get" action="/coverage/compare#catchment-results">
+    ${hidden('population',settings.population)}${hidden('rate',settings.rate)}${preserve(preview)}
+    <p>Choose areas on this page to compare them as one catchment.</p>
+    ${columns(paged,settings,preview,true,true)}
+    <div class="controls"><button type="submit">Compare selected areas</button></div></form>`:columns(paged,settings,preview,true);
   return styles+tabs('/coverage',settings,preview,showSaved)+
     `<div class="stat-grid coverage-stats">
       ${stat(n(coverageMeta.areaCount),'ABS Postal Areas','2021 Census geography')}
@@ -169,16 +193,19 @@ export function nationalOverview(rows,settings,preview,showSaved,nonce){
       ${stat(n(settings.population),'Scenario population','Adjust in the planning filters')}
       ${stat(d(benchmark),'National rack equivalents','One per '+n(settings.rate)+' scenario residents')}
     </div>`+
-    `<div class="controls">${link('Find a postcode or adjust the scenario','#coverage-filters')}</div>`+
+    `<div class="controls">${link('Find a postcode or adjust the scenario','#coverage-filters')}
+      ${settings.small?link('Show all population sizes',coverageUrl('/coverage',settings,preview,{small:false,sort:'code',direction:'asc',page:1})+'#register'):
+        link('Review areas under 10,000 residents',coverageUrl('/coverage',settings,preview,{small:true,maximum:smallAreaMaximum,sort:'census',direction:'asc',page:1})+'#register')}</div>`+
     `<div id="map" class="coverage-grid">`+
-    section('National population map','Colour and size represent 2021 usual residents.',coverageMap(rows,nonce))+
+    section('National population map','Colour and size represent 2021 usual residents.',coverageMap(rows,settings.small))+
     section('Regions','Filter the register using 2021 boundaries.',regionPanel(settings,preview))+
     '</div>'+
     `<div id="coverage-filters">`+section('Planning filters','Change assumptions without altering the Census baseline.',searchForm(settings,preview))+'</div>'+
     `<div id="register">`+section('Postcode and population register','Every mapped area is available here and in the CSV.',
       `<p><strong>${n(rows.length)}</strong> matching areas · <strong>${n(filteredPopulation)}</strong> Census residents in those areas.</p>
       ${manualMissing?`<p class="coverage-result"><strong>No population match for ${esc(settings.prefix)}.</strong> This code has no matching mapped ABS Postal Area in the 2021 dataset.</p>`:''}
-      ${paged.length?columns(paged,settings,preview,true):rows.length?'<p>This page is outside the selected results.</p>':'<p>Try another four-digit code or prefix.</p>'}
+      ${settings.small?`<p class="coverage-result">Reviewing Postal Areas with ${n(settings.maximum)} or fewer residents. A postcode is a planning unit. Nearby areas can share a catchment.</p>`:''}
+      ${paged.length?register:rows.length?'<p>This page is outside the selected results.</p>':settings.small?'<p>No areas match this population limit. Raise the cutoff or clear a region or postcode filter.</p>':'<p>Try another four-digit code or prefix.</p>'}
       <div class="controls">
       ${settings.page>1?link('Previous page',coverageUrl('/coverage',settings,preview,{page:Math.min(pages,settings.page-1)})+'#register'):''}
       ${settings.page<pages?link('Next page',coverageUrl('/coverage',settings,preview,{page:settings.page+1})+'#register'):''}
@@ -187,7 +214,10 @@ export function nationalOverview(rows,settings,preview,showSaved,nonce){
       </div>`)+`</div>`+
     section('Census reconciliation','Planning calculations use the published national baseline.',
       `<p><strong>${n(coverageMeta.nationalPopulation)}</strong> published national Census count · <strong>${n(coverageMeta.mappedPopulation)}</strong> summed mapped areas.</p>
-       <p>The difference is ${n(unmapped)} people on the Census baseline. ${d(scale(unmapped,settings).racks)} scenario rack equivalents remain outside this mapped allocation.</p>`)+methodology();
+       <p>The difference is ${n(unmapped)} people on the Census baseline. ${d(scale(unmapped,settings).racks)} scenario rack equivalents remain outside this mapped allocation.</p>`)+methodology()+(nonce?`<script nonce="${nonce}">
+    (${activateCoverageMap.toString()})(document.getElementById('coverage-zoom'));
+    (${activatePopulationScale.toString()})(document.getElementById('coverage-planning-form'));
+    </script>`:'');
 }
 function resultSummary(result,settings,preview){
   return `<div class="stat-grid coverage-stats">
@@ -209,8 +239,8 @@ export function compareCatchment(settings,preview,showSaved,codes,input,problem=
        <button type="submit">Calculate catchment</button></form>
        ${problem?`<p class="notice" role="alert">${esc(problem)}</p>`:''}
        <p class="workspace-note">National scenario: ${n(settings.population)} residents · one rack per ${n(settings.rate)}. Duplicate codes count once.</p>`)+
-    (calculated?section('Catchment results','Uses only the known population across the selected areas.',
-      resultSummary(calculated,settings,preview)+(showSaved?`<div class="controls">${link('Save this catchment',coverageUrl('/coverage/catchments/new',settings,null,{codes:codes.join(',')}))}</div>`:'')):'');
+    (calculated?'<div id="catchment-results">'+section('Catchment results','Uses only the known population across the selected areas.',
+      resultSummary(calculated,settings,preview)+(showSaved?`<div class="controls">${link('Save this catchment',coverageUrl('/coverage/catchments/new',settings,null,{codes:codes.join(',')}))}</div>`:''))+'</div>':'');
 }
 export function savedCatchments(catchments,settings){
   const scoped=catchments.map(c=>({...c,result:totals(c.postcodes,settings)}));

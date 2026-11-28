@@ -3,6 +3,7 @@ export {coverageMeta,postalAreas,regionNames,regionPaths};
 
 export const defaultPopulation=30_000_000;
 export const defaultRate=10_000;
+export const smallAreaMaximum=9_999;
 export const byPostcode=new Map(postalAreas.map(row=>[row[0],row]));
 export const labels={NSW:'New South Wales',VIC:'Victoria',QLD:'Queensland',SA:'South Australia',WA:'Western Australia',
   TAS:'Tasmania',NT:'Northern Territory',ACT:'Australian Capital Territory',OT:'Other Territories'};
@@ -23,12 +24,14 @@ export function options(params) {
   const entered=params.get('q')||'';
   const prefix=entered.trim().slice(0,24);
   const region=params.get('region')||'';
-  const sort=params.get('sort')||'code';
+  const small=params.get('small')==='1';
+  const sort=params.get('sort')||(small?'census':'code');
   const direction=params.get('dir')||(sort==='high'?'desc':'asc');
   return {
     prefix,region:Object.hasOwn(labels,region)?region:'',
     sort:sort==='high'||sort==='low'?'census':Object.hasOwn(sortColumns,sort)?sort:'code',
     direction:direction==='desc'?'desc':'asc',
+    small, maximum:bound(params.get('max'),smallAreaMaximum,0,smallAreaMaximum),
     population:bound(params.get('population'),defaultPopulation,1_000_000,100_000_000),
     rate:bound(params.get('rate'),defaultRate,100,1_000_000),
     page:bound(params.get('page'),1,1,300)
@@ -37,7 +40,10 @@ export function options(params) {
 
 export function filteredAreas(settings) {
   const bit=settings.region?1<<regionNames.indexOf(settings.region):0;
-  const rows=postalAreas.filter(row=>(!bit||(row[4]&bit))&&row[0].startsWith(settings.prefix));
+  const rows=postalAreas.filter(row=>
+    (!bit||(row[4]&bit))&&row[0].startsWith(settings.prefix)&&
+    (!settings.small||(row[1]!==null&&row[1]<=settings.maximum)));
+
   const {sort,direction}=settings;
   const directionFactor=direction==='desc'?-1:1;
   if(sort==='code')return directionFactor<0?rows.reverse():rows;

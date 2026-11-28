@@ -35,7 +35,7 @@ export function readCoverage(request,headers,account,preview,demo=false){
       headers:{...headers,'Content-Security-Policy':csp+"; script-src 'nonce-"+nonce+"'"}
     });
   }
-  const input=(url.searchParams.get('codes')||'').slice(0,1801);
+  const input=(url.searchParams.get('codes')||url.searchParams.getAll('pick').join(', ')).slice(0,1801);
   let codes=[],problem='';
   try{codes=parseCodes(input);}catch(error){problem=error.message;}
   return render(...descriptions[path],compareCatchment(settings,preview,ownerView,codes,input,problem),problem?422:200);

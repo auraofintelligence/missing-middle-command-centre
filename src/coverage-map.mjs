@@ -118,3 +118,27 @@ export function activateCoverageMap(root) {
   toolbar.hidden=false;
   update(0,0,1);
 }
+
+export function activatePopulationScale(form) {
+  const toggle=form.querySelector('[name=small]');
+  const number=form.querySelector('[name=max]');
+  const slider=form.querySelector('[data-population-slider]');
+  const sort=form.querySelector('[name=sort]');
+  const direction=form.querySelector('[name=dir]');
+  function enableReview() {
+    toggle.checked=true;
+    sort.value='census';
+    direction.value='asc';
+  }
+  toggle.addEventListener('change',()=>{if(toggle.checked)enableReview();});
+  slider.addEventListener('input',()=>{
+    if(!toggle.checked)enableReview();
+    number.value=slider.value;
+  });
+  number.addEventListener('input',()=>{
+    if(!number.value||!number.validity.valid)return;
+    if(!toggle.checked)enableReview();
+    slider.value=number.value;
+  });
+  slider.closest('[data-population-scale]').hidden=false;
+}

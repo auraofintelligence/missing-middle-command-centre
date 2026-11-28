@@ -356,3 +356,24 @@ test('coverage sorts both ways, retains filters, and anchors Apply and table nav
   const nonce=/script-src 'nonce-([^']+)'/.exec(response.headers.get('Content-Security-Policy'))?.[1];
   assert.ok(nonce&&page.includes('<script nonce="'+nonce+'">'));
 });
+
+test('smaller-area review supports a zero cutoff and forwards chosen areas to comparison',async()=>{
+  const small=coverageOptions(new URLSearchParams('small=1'));
+  const rows=filteredAreas(small);
+  assert.equal(small.sort,'census');
+  assert.equal(small.direction,'asc');
+  assert.ok(rows.length>1000&&rows.every(row=>row[1]!==null&&row[1]<10000));
+  assert.equal(rows[0][1],0);
+  assert.ok(rows[0][1]<rows.at(-1)[1]);
+  const zeros=filteredAreas(coverageOptions(new URLSearchParams('small=1&max=0')));
+  assert.ok(zeros.length>0&&zeros.every(row=>row[1]===0));
+  assert.ok(filteredAreas(coverageOptions(new URLSearchParams('small=1&max=500'))).every(row=>row[1]<=500));
+  const page=await demo.fetch(new Request(origin+'/coverage?small=1&max=0')).text();
+  assert.match(page,/0 or fewer residents/);
+  assert.match(page,/name="max" type="number" min="0" max="9999" step="1" value="0"/);
+  assert.match(page,/small=1&amp;max=0/);
+  assert.match(page,/Compare selected areas/);
+  const compared=await demo.fetch(new Request(origin+'/coverage/compare?pick=4183&pick=0800&pick=4183')).text();
+  assert.match(compared,/id="catchment-results"/);
+  assert.match(compared,/9,305/);
+});

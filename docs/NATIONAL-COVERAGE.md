@@ -3,6 +3,7 @@
 Open [National Coverage](https://missing-middle-command-centre.auraofintelligence.workers.dev/coverage) from Programme or Places and outreach. It can be used before creating a project or identifying a candidate site.
 
 - **National overview** has a population map with zoom, pan and fit controls, state and territory filters, postcode or prefix search and CSV export. Click a register heading to sort and click it again to reverse the order. Apply returns to the filters; sorting returns to the register.
+- **Smaller areas** filters known 2021 populations below 10,000 and starts with the smallest first. Use the scale or exact cutoff down to zero, then select areas for a shared catchment comparison. An individual postcode does not require a rack.
 - **Compare a catchment** calculates a group of four digit codes. Each code counts once and missing matches remain visible.
 - **Saved catchments** supports Webmaster edits, a combined footprint that removes overlaps, and signed revision history. The fictional demonstration has the public reference data and calculator without private catchment access.
 
