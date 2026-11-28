@@ -2,8 +2,8 @@
 
 | Surface | URL | Cloudflare version |
 | --- | --- | --- |
-| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `bc4a8b25-8090-4b05-b24f-1c68ce52f7d8` |
-| Fictional demo | [Open demo](https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/) | `8504234f-d3d0-4b64-8247-a9234bbc57bd` |
+| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `9b7324e2-6b3e-4895-93cd-990b007f6b13` |
+| Fictional demo | [Open demo](https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/) | `4a9bd8b1-94b2-420f-8168-2a0f049ad597` |
 
 The private Worker runs `src/worker.mjs` with the dedicated `DB` binding, `nodejs_compat` and `PASSWORD_AUTH=enabled`. Cloudflare Access protects `/account/setup` using the Cloudflare account identity provider and a rule for the owner's email. The Worker independently validates the Access token before enrolling the existing authorised account. The hosted sign-in form and other private routes use application sessions. Both Workers have preview URLs disabled.
 
