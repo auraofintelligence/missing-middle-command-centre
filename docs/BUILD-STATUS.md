@@ -1,30 +1,19 @@
 # Build status
 
-Prepared 27 November 2026.
+28 November 2026.
 
 | Item | Status |
 | --- | --- |
-| Backend architecture and project lifecycle | Planned and documented |
-| Co-op integration contract | Version 1 proposed interface documented |
-| Familiar desks and navigation | Specified, not built |
-| Owner/Webmaster and other accounts | Roles specified, no live accounts created |
-| Read-only role preview and separate demo | Specified, not built |
-| Private Cloudflare Worker | Not deployed |
-| Cloudflare Access policy | Not configured or verified here |
-| D1 database and migrations | Data model specified, not provisioned |
-| Private R2 file storage | Specified, not provisioned |
-| Supplier project access | Scoped design only, no grants issued |
-| CMS, calendar and external publication | Workflow specified, not built |
-| Co-op handover API | Proposed later interface, not connected |
-| Runtime security and restore tests | Acceptance criteria written, not run |
-| Real project data | None added by this work |
+| Private Cloudflare workspace | Worker deployed. A signed-out request to the project creation page produced a Cloudflare Access sign-in challenge. Preview URLs are disabled. |
+| Owner/Webmaster | One owner account and exact email allow rule provisioned. The authenticated Access subject binds to the account on first sign-in. A signed-in project save remains to be verified live. |
+| Projects | D1 migration applied. The workspace supports candidate host and postcode research, site briefs, next actions, independent delivery, funding and co-op stages, and signed revisions. Local SQLite tests passed. |
+| Desks | Nine desk links share the portfolio and project history. Specialised tools for later releases are pending. |
+| Project scope | Project manager and auditor grants enforced by the Worker. The Webmaster can preview either role for a selected project with writes blocked. Grant administration UI and additional user enrolment are pending. |
+| Fictional demo | Separate Worker with no bindings to the private environment. Cloudflare Browser Rendering verified the aquatic centre detail page and three fictional revisions. |
+| Next workflow | Complete a live owner sign-in and a fictional project save, then build linked organisations, sites, postcode opportunities and consented contacts. |
+| Later releases | Funding, procurement, commissioning, co-op handover, media, operations, private files, backups and Ready SETCO education integration remain planned. |
+| Deployment automation | Both Workers deployed through the Cloudflare API. Automatic deployment from this repository has yet to be configured. |
 
-## Next implementation
+The GitHub repository is public by owner direction. Revisit its visibility before storing confidential implementation material. The workspace's sign-in and permission checks apply independently. Credentials and real operating data belong outside Git.
 
-Build Release A and the usable Release B project-record flow from [the plan](COMMAND-CENTRE-PLAN.md): real identity, scope enforcement, common shell, history, persistent projects and separate synthetic demo. Verify the deployed private boundary before entering actual records. Then implement funding/delivery, co-op acceptance, media and operations in the specified sequence.
-
-No outreach, invitation, appointment, purchase, agreement or media release has been executed as part of this planning work.
-
-## Source visibility
-
-Source visibility was public when these documents were prepared. They contain general architecture only. Check the repository's current GitHub setting independently. The intended application is private regardless of source visibility, and must enforce its own authentication and permission boundary.
+See [deployment and acceptance](DEPLOYMENT.md) and the [command-centre plan](COMMAND-CENTRE-PLAN.md).

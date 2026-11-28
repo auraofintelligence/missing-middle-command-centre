@@ -1,10 +1,10 @@
 # Missing Middle Command Centre
 
-Architecture and build plan for a private company CMS and project workspace.
+A private project workspace for taking a postcode opportunity through to a documented site brief. [Open the command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) · [Explore the fictional demo](https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/).
 
-This repository currently contains planning documents. It does not provide a deployed login service, database, project application, live accounts, supplier access or publication endpoint.
+This release includes Cloudflare Access sign-in, a dedicated project database, search by name, locality or postcode, separate delivery, funding and co-op stages, signed revisions, and read-only Webmaster project previews.
 
-The intended application manages the full journey from postcode discovery and candidate location through funding, installation, commissioning and accepted local co-op management. Media and community participation develop alongside delivery.
+Later releases extend the application to manage the full journey from postcode discovery and candidate location through funding, installation, commissioning and accepted local co-op management. Media and community participation develop alongside delivery.
 
 ## Read the plan
 
@@ -26,9 +26,11 @@ The intended application manages the full journey from postcode discovery and ca
 
 ## Source visibility and runtime privacy
 
-Repository visibility and application access are separate. These planning documents contain general architecture only. No contacts, actual agreements, commercial records, credentials or live project data belong in Git history.
+This repository can remain public while it contains general planning and application source. Revisit visibility before adding confidential implementation material. Keep credentials, contacts, commercial agreements and real project records outside Git.
 
-The intended application must deny unauthorised access to pages, API routes, files and exports, including alternate hostnames and previews. Real project data must wait until that boundary is implemented and verified. Do not infer deployed privacy from the repository name or from a hidden menu.
+The deployed workspace requires Cloudflare Access. The signed-out challenge is verified. Complete the first owner sign-in and save a fictional project before entering operational records. See [deployment and acceptance](docs/DEPLOYMENT.md).
+
+Run `node --test` with Node 24 or later for the source checks. See [build status](docs/BUILD-STATUS.md) for the current release and outstanding work.
 
 ## Connections
 
@@ -42,4 +44,4 @@ The co-op hub has its own active development. This repository defines an integra
 
 Hosting target: the owner's Cloudflare account. No ChatGPT Sites.
 
-Prepared 27 November 2026. Original programme by Luke Nathan Hayes / Strange But True / Aura of Intelligence. See [LICENCE.md](LICENCE.md).
+Updated 28 November 2026. Original programme by Luke Nathan Hayes / Strange But True / Aura of Intelligence. See [LICENCE.md](LICENCE.md).
