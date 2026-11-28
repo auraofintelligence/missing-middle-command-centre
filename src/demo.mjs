@@ -1,3 +1,4 @@
+import {serveBrand} from './brand.mjs';
 import {desks,page,detail} from './views.mjs';
 import {tools,forDesk} from './desk-tools.mjs';
 import {workspace,recordPage,projectTools,validMonth,validId} from './workspace.mjs';
@@ -67,7 +68,7 @@ const records=examples.map(([kind,title,status,data,linked,second],i)=>{
 const headers = {
   'Content-Type':'text/html; charset=utf-8',
   'Cache-Control':'no-store',
-  'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; img-src https://raw.githubusercontent.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+  'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; img-src 'self' https://raw.githubusercontent.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
   'X-Content-Type-Options':'nosniff',
   'Referrer-Policy':'no-referrer',
   'X-Robots-Tag':'noindex, nofollow'
@@ -75,6 +76,8 @@ const headers = {
 export default {
   fetch(request) {
     const url=new URL(request.url);
+    const brand=serveBrand(request,url.pathname);
+    if(brand)return brand;
     if(!['GET','HEAD'].includes(request.method))return new Response('The demo is view only.',{status:405,headers:{...headers,Allow:'GET, HEAD'}});
     const requested=url.searchParams.get('desk');
     const desk=Object.hasOwn(desks,requested)?requested:'programme';

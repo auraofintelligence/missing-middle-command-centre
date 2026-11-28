@@ -1,3 +1,4 @@
+import {serveBrand} from './brand.mjs';
 import {accessIdentity,accountFor} from './access.mjs';
 import {accountRoute} from './account.mjs';
 import {passwordSession} from './passwords.mjs';
@@ -10,7 +11,7 @@ import {workspace,recordPage,recordEditor,recordLink,projectTools,validId,validM
 export const headers = {
   'Cache-Control':'private, no-store',
   'Content-Type':'text/html; charset=utf-8',
-  'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; img-src https://raw.githubusercontent.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+  'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; img-src 'self' https://raw.githubusercontent.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
   'X-Content-Type-Options':'nosniff',
   // Native same-origin POSTs need their Origin header for form validation.
   'Referrer-Policy':'same-origin',
@@ -30,6 +31,8 @@ export default {
   async fetch(request,env,ctx) {
     const url = new URL(request.url);
     if (!env.APP_HOST || url.host !== env.APP_HOST || url.protocol !== 'https:') return failure(404,'Workspace not found.');
+    const brand=serveBrand(request,url.pathname);
+    if(brand)return brand;
     if (!env.DB || !env.ACCESS_ISSUER || !env.ACCESS_AUD) return failure(503,'Workspace setup is incomplete.');
     try {
       let account;

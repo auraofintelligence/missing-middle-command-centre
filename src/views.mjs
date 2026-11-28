@@ -1,3 +1,4 @@
+import {brandHead,brandLogo} from './brand.mjs';
 import {fields,stages} from './projects.mjs';
 
 export const desks = {
@@ -28,7 +29,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 header{background:var(--navy);color:white;padding:1rem max(1rem,calc((100vw - 84rem)/2));display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 header a{color:var(--mint);font-weight:750}
 .brand{display:flex;align-items:center;gap:.75rem}
-.mark{width:1.45rem;height:1.45rem;border-inline:.34rem solid var(--mint);border-top:.27rem solid transparent;background:repeating-linear-gradient(to bottom,var(--gold) 0 .27rem,transparent .27rem .43rem) center/55% 100% no-repeat}
+.brand-mark{display:block;width:2.3rem;height:2.3rem;flex:none;border-radius:.48rem}
 .shell{max-width:84rem;margin:auto;display:grid;grid-template-columns:minmax(11rem,15rem) 1fr;gap:1.5rem;padding:1.5rem 1rem 3rem}
 nav{position:sticky;top:1rem;align-self:start}
 nav a{display:block;padding:.48rem .7rem;border-radius:.45rem;margin-bottom:.15rem;text-decoration:none}
@@ -130,8 +131,8 @@ export function page({title,description,desk,preview,account,demo=false,body,pro
   const notice = demo ? '<aside class="notice">Fictional demonstration. Records are view only.</aside>' : preview ?
     `<aside class="notice"><strong>Role preview</strong> · ${escape(preview.role)} · View only · Signed in as ${escape(account.name)}. <a href="/?desk=webmaster">Return to Webmaster</a></aside>` : '';
   return `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="robots" content="noindex, nofollow"><title>${escape(title)} | Missing Middle</title><style>${css}</style></head>
-  <body id="top"><header><div class="brand"><span class="mark" aria-hidden="true"></span><a href="${escape(deskUrl('programme',preview))}">Missing Middle Command Centre</a></div>
+  <meta name="robots" content="noindex, nofollow">${brandHead}<title>${escape(title)} | Missing Middle</title><style>${css}</style></head>
+  <body id="top"><header><div class="brand"><img class="brand-mark" src="${brandLogo}" width="38" height="38" alt=""><a href="${escape(deskUrl('programme',preview))}">Missing Middle Command Centre</a></div>
   <span>${demo?'Webmaster demo':escape(account?.name || 'Private workspace')}${!demo&&account?.owner?' · Webmaster':''}${account?.passwordSignIn?' · <a href="/account">Account</a>':''}</span></header>
   <div class="shell"${visibleDesks.length?'':' style="display:block;max-width:51rem"'}>${visibleDesks.length?`<nav class="desk-nav" aria-label="Desks"><h2>Desks</h2><div>${navigation}</div>${!demo&&!preview?'<a class="preview-link" href="https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/">View fictional demo</a>':''}</nav>`:''}<main id="main">
   <div class="hero${desk?' workspace':''}"><div><h1>${escape(title)}</h1><p>${escape(description)}</p>${context?`<p class="workspace-context">${escape(context)}</p>`:''}</div>${desk?sprite(desk):''}</div>${notice}${body}</main></div>

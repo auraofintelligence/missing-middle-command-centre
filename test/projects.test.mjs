@@ -262,3 +262,23 @@ test('demo has separate desks, visual navigation, and a populated media calendar
   assert.doesNotMatch(records,/Add decision/);
   assert.equal(demo.fetch(new Request(origin+'/tools/site/new',{method:'POST'})).status,405);
 });
+
+test('brand icons load without a session on both Workers and leave other routes private', async () => {
+  const env={APP_HOST:new URL(origin).host};
+  for(const handle of [request=>worker.fetch(request,env),request=>demo.fetch(request)]){
+    const r=await handle(new Request(origin+'/favicon.ico'));
+    const bytes=new Uint8Array(await r.arrayBuffer());
+    assert.equal(r.status,200);
+    assert.equal(r.headers.get('Content-Type'),'image/vnd.microsoft.icon');
+    assert.deepEqual([...bytes.slice(0,6)],[0,0,1,0,4,0]);
+    assert.deepEqual([6,22,38,54].map(i=>bytes[i]),[16,24,32,48]);
+    const header=await handle(new Request(origin+'/brand/missing-middle-v1-logo.png',{method:'HEAD'}));
+    assert.equal(header.status,200);
+    assert.equal(header.headers.get('Content-Type'),'image/png');
+    assert.equal((await header.arrayBuffer()).byteLength,0);
+  }
+  assert.equal((await worker.fetch(new Request('https://elsewhere.example/favicon.ico'),env)).status,404);
+  const page=await demo.fetch(new Request(origin)).text();
+  assert.match(page,/rel="icon" href="\/brand\/missing-middle-v1\.ico"/);
+  assert.match(page,/class="brand-mark" src="\/brand\/missing-middle-v1-logo\.png"/);
+});
