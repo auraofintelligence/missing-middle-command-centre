@@ -23,8 +23,18 @@ export default {
     if (!env.APP_HOST || url.host !== env.APP_HOST || url.protocol !== 'https:') return failure(404,'Workspace not found.');
     if (!env.DB || !env.ACCESS_ISSUER || !env.ACCESS_AUD) return failure(503,'Workspace setup is incomplete.');
     try {
-      const identity = await accessIdentity(request,env);
-      if (!identity) return failure(401,'Cloudflare Access sign-in required.');
+      let sessionIssue;
+      const identity = await accessIdentity(request,env,reason => { sessionIssue = reason; });
+      if (!identity) {
+        console.warn('Command centre Access verification',sessionIssue);
+        return html(page({
+          title:'Sign-in needed',
+          description:sessionIssue === 'missing_session'
+            ? 'The workspace did not receive a Cloudflare Access session.'
+            : 'The workspace could not verify your Cloudflare Access session.',
+          body:'<section class="card"><p>Open the workspace again in the same browser you used for your one-time code.</p><a class="button" href="/">Open workspace</a></section>'
+        }),401);
+      }
       const account = await accountFor(env.DB,identity);
       if (!account) return failure(403,'This account does not have workspace access.');
       const preview = roleView(url,account);

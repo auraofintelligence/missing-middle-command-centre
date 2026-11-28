@@ -2,7 +2,7 @@
 
 | Surface | URL | Verified Cloudflare version on 28 November 2026 |
 | --- | --- | --- |
-| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `a0fa846a-0b52-4de2-bb2f-3b8c5ed9261b` |
+| Private workspace | [Open command centre](https://missing-middle-command-centre.auraofintelligence.workers.dev/) | `1f2352c7-0a59-40e1-9a24-72b9d6e7d4d0` |
 | Fictional demo | [Open demo](https://missing-middle-command-centre-demo.auraofintelligence.workers.dev/) | `65e76b17-eb44-4bd6-9759-c87592cd408f` |
 
 The private Worker runs `src/worker.mjs` and uses a dedicated D1 database via the `DB` binding. The runtime configuration sets `APP_HOST`, `ACCESS_ISSUER` and `ACCESS_AUD` for that Worker and its Access application. The demo runs `src/demo.mjs` without database bindings. Both use the Cloudflare API deployment route and have preview URLs disabled.
@@ -16,4 +16,4 @@ The D1 migration at `migrations/0001_projects.sql` is already applied. For a fut
 3. Add a fictional host, workload and heat use assessment. Move delivery to **Site brief** and check the signed revision.
 4. From **Webmaster**, open an Auditor preview for the same project. Confirm the project is visible and the editing control is absent, then return to Webmaster.
 
-The signed-out boundary was checked against the live project creation route. Local tests passed for the application token, project scope, revisions and repeat saves. Record the first successful signed-in production save in [build status](BUILD-STATUS.md).
+The signed-out boundary was checked against the live project creation route. The Worker validates the Cloudflare Access assertion header when present and the signed application session cookie when the header is missing. Both paths use the same signature and application checks. Cloudflare accepted the owner's one-time code before this update, but the Worker did not complete verification. A signed-in retry after this update is pending. Local tests passed for the application token, project scope, revisions and repeat saves. Record the first successful signed-in production save in [build status](BUILD-STATUS.md).

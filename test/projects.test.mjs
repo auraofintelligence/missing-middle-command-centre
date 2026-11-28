@@ -112,6 +112,14 @@ test('Access claims must match the trusted application and a valid signature', a
     assert.equal(await accessIdentity(await request(claims),env),null);
   }
   const token = (await request()).headers.get('Cf-Access-Jwt-Assertion');
+  const cookie = value => new Request(origin,{headers:{Cookie:value}});
+  assert.equal((await accessIdentity(cookie('preferences=on; CF_Authorization='+token),env)).subject,'test-subject');
+  assert.equal(await accessIdentity(cookie('CF_Authorization='+token+'; CF_Authorization='+token),env),null);
+  assert.equal(await accessIdentity(new Request(origin,{headers:{
+    'Cf-Access-Jwt-Assertion':'invalid',
+    Cookie:'CF_Authorization='+token
+  }}),env),null);
+  assert.equal(await accessIdentity(cookie('Unrelated_CF_Authorization='+token),env),null);
   const dot = token.lastIndexOf('.')+1;
   const corrupted = token.slice(0,dot)+(token[dot]==='A'?'B':'A')+token.slice(dot+1);
   assert.equal(await accessIdentity(new Request(origin,{headers:{'Cf-Access-Jwt-Assertion':corrupted}}),env),null);
@@ -119,6 +127,7 @@ test('Access claims must match the trusted application and a valid signature', a
   sqlite.exec("INSERT INTO accounts (id,email,name,owner) VALUES ('owner','owner@example.com','Owner',1)");
   const appEnv={...env,DB:db,APP_HOST:'command.example.com'};
   assert.equal((await worker.fetch(await request(),appEnv)).status,200);
+  assert.equal((await worker.fetch(cookie('CF_Authorization='+token),appEnv)).status,200);
   for (const path of ['/','/projects/new','/exports','/assets/app.js']) {
     assert.equal((await worker.fetch(new Request(origin+path),appEnv)).status,401);
   }
