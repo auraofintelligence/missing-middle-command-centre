@@ -120,6 +120,9 @@ function webmaster(o,records){
 }
 
 export function workspace(o,{projects=[],records=[],counts={},milestones=[]}={}){
+  const national=o.desk==='places'||o.desk==='programme'&&!o.tool?
+    section('National coverage','Search the Census baseline before choosing a site.',
+      button('Open National Coverage','/coverage'+q(packPreview(o.preview)),true)):'';
   const controls=contextBar(o);
   if(o.desk==='webmaster')return controls+webmaster(o,records);
   if(o.desk==='programme'&&!o.tool){
@@ -132,7 +135,7 @@ export function workspace(o,{projects=[],records=[],counts={},milestones=[]}={})
       <p>Start with a postcode and evidence source. The project will connect the work in each desk.</p>
       ${o.account?.owner&&!o.preview?button('New project',newProject(o)):''} ${button('Open the worked example',demoLink,true)}</div>`:'';
     const next=upcoming.length?`<ul>${upcoming.map(p=>`<li>${esc(displayDate(p.due_date))} · <a href="${esc(p.kind?recordLink(p,o):projectUrl(p.id,o.desk,o.preview,o.query,o.cursor))}">${esc(p.title)}</a></li>`).join('')}</ul>`:'<p>No upcoming commitments in this view.</p>';
-    return controls+statistics+section('Portfolio','Current delivery, funding and co-op stages.',
+    return national+controls+statistics+section('Portfolio','Current delivery, funding and co-op stages.',
         empty||portfolio(projects,{...o,signOut:false,hideSearch:true}),o.account?.owner&&!o.preview&&o.projectChoices.length?button('New project',newProject(o),true):'')+
       section('Upcoming commitments','Project actions and milestone dates.',next,button('Open milestones',deskLink(o,'programme','milestone'),true))+deskIndex(o);
   }
@@ -140,7 +143,7 @@ export function workspace(o,{projects=[],records=[],counts={},milestones=[]}={})
   const selected=kinds.includes(o.tool)?o.tool:kinds[0];
   if(!selected)return controls+deskIndex(o);
   const extra=o.desk==='places'?'<p class="workspace-note">Keep research sources, contact permissions and established relationships visible as separate records.</p>':'';
-  return controls+toolCards(kinds,selected,counts,o)+extra+toolSection(selected,records,counts,o);
+  return national+controls+toolCards(kinds,selected,counts,o)+extra+toolSection(selected,records,counts,o);
 }
 export function projectTools(project,counts,o){
   const available=Object.keys(tools).filter(k=>counts[k]&&!(!o.showContacts&&k==='contact'));

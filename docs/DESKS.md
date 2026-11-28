@@ -5,7 +5,7 @@ Add a project in **Programme**. The project owns the separate delivery, funding 
 | Desk | Tools |
 | --- | --- |
 | Programme | Project portfolio, upcoming commitments and milestones |
-| Places and outreach | Organisations, postcode opportunities and consented contacts |
+| Places and outreach | National Coverage, organisations, postcode opportunities and consented contacts |
 | Sites and delivery | Candidate site briefs and work packages |
 | Funding and finance | Funding pipeline and budget lines in AUD |
 | Co-ops and handover | Co-op readiness reviews and management acceptance records |

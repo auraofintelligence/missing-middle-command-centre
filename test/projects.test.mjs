@@ -6,12 +6,14 @@ import {accessIdentity,accountFor} from '../src/access.mjs';
 import {readProject,readHistory,listProjects,saveProject,roleView} from '../src/projects.mjs';
 import worker from '../src/worker.mjs';
 import demo from '../src/demo.mjs';
+import {coverageMeta,filteredAreas,options as coverageOptions,parseCodes,scale,totals,csvAreas} from '../src/coverage-model.mjs';
+import {saveCatchment,catchmentHistory,listCatchments} from '../src/coverage-catchments.mjs';
 import {saveDeskRecord,getDeskRecord,listDeskRecords,deskCounts,deskHistory} from '../src/desk-records.mjs';
 import {validPassword,reserveAttempt,enrolPassword,passwordSession} from '../src/passwords.mjs';
 
 function database() {
   const sqlite = new DatabaseSync(':memory:');
-  for (const file of ['0001_projects.sql','0002_password_accounts.sql','0003_desk_records.sql']) {
+  for (const file of ['0001_projects.sql','0002_password_accounts.sql','0003_desk_records.sql','0004_coverage_catchments.sql']) {
     sqlite.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
   }
   const db = {
@@ -281,4 +283,54 @@ test('brand icons load without a session on both Workers and leave other routes 
   const page=await demo.fetch(new Request(origin)).text();
   assert.match(page,/rel="icon" href="\/brand\/missing-middle-v1\.ico"/);
   assert.match(page,/class="brand-mark" src="\/brand\/missing-middle-v1-logo\.png"/);
+});
+
+test('national coverage keeps the Census baseline, leading zeroes and unmapped codes distinct',async()=>{
+  const defaults=coverageOptions(new URLSearchParams());
+  assert.equal(defaults.population/defaults.rate,3000);
+  assert.equal(coverageMeta.referenceYear,2021);
+  const list=filteredAreas(defaults);
+  assert.equal(list.length,2641);
+  assert.equal(list.reduce((sum,row)=>sum+row[1],0),25369823);
+  assert.equal(coverageMeta.nationalPopulation,25422788);
+  assert.equal(filteredAreas({...defaults,prefix:'0800'})[0][0],'0800');
+  assert.equal(filteredAreas({...defaults,prefix:'4183',region:'QLD'})[0][1],2156);
+  assert.equal(filteredAreas({...defaults,prefix:'4183',region:'WA'}).length,0);
+  assert.deepEqual(parseCodes('4183, 0800 4183; 9999'),['0800','4183','9999']);
+  const aggregate=totals(['4183','4183','9999'],defaults);
+  assert.equal(aggregate.residents,2156);
+  assert.equal(aggregate.estimate.racks,scale(2156,defaults).racks);
+  assert.deepEqual(aggregate.missing,['9999']);
+  assert.equal(totals(['9999'],defaults).estimate,null);
+  assert.match(csvAreas(filteredAreas({...defaults,prefix:'0800'}),defaults),/\r\n0800,NT,7149,/);
+  assert.match(await demo.fetch(new Request(origin+'/coverage')).text(),/25,369,823/);
+  assert.match(await demo.fetch(new Request(origin+'/coverage?region=QLD&q=4183')).text(),/2,156/);
+  assert.match(await demo.fetch(new Request(origin+'/coverage?q=9999')).text(),/No population match for 9999/);
+  assert.equal(demo.fetch(new Request(origin+'/coverage/catchments')).status,404);
+  assert.equal(demo.fetch(new Request(origin+'/coverage/catchments/new',{method:'POST'})).status,405);
+});
+
+function catchmentForm(overrides={},key=crypto.randomUUID()){
+  const values={title:'Worked catchment',postcodes:'4183,0800,4183',notes:'Scope under study.',
+    reason:'Register a working geography',request_key:key,version:'0',...overrides};
+  return new Request(origin+'/coverage/catchments/new',{method:'POST',headers:{origin},body:new URLSearchParams(values)});
+}
+
+test('only the Webmaster saves coverage catchments and every revision preserves source and scope',async()=>{
+  const {db,sqlite}=database();
+  sqlite.exec("INSERT INTO accounts (id,email,name,owner) VALUES ('owner','owner@example.com','Owner',1),('editor','edit@example.com','Project Officer',0)");
+  const key=crypto.randomUUID();
+  const id=await saveCatchment(db,owner,null,null,catchmentForm({},key));
+  assert.equal(await saveCatchment(db,owner,null,null,catchmentForm({},key)),id);
+  await assert.rejects(saveCatchment(db,editor,null,null,catchmentForm()),{status:403});
+  await assert.rejects(saveCatchment(db,owner,{id:'preview'},null,catchmentForm()),{status:403});
+  await assert.rejects(saveCatchment(db,owner,null,null,catchmentForm({postcodes:'083'})),{status:422});
+  await assert.rejects(saveCatchment(db,owner,null,null,catchmentForm()),{status:422});
+  await saveCatchment(db,owner,null,id,catchmentForm({version:'1',postcodes:'4183,9999'}));
+  await assert.rejects(saveCatchment(db,owner,null,id,catchmentForm({version:'1'})),{status:409});
+  const [saved]=await listCatchments(db,owner,null);
+  assert.equal(saved.version,2);
+  assert.equal(saved.source_version,coverageMeta.version);
+  assert.deepEqual(saved.postcodes,['4183','9999']);
+  assert.deepEqual((await catchmentHistory(db,owner,null,id))[1].snapshot.postcodes,['0800','4183']);
 });

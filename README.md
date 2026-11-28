@@ -6,6 +6,8 @@ The workspace presents nine illustrated desks, with a project selector, a portfo
 
 Later releases extend the application to manage the full journey from postcode discovery and candidate location through funding, installation, commissioning and accepted local co-op management. Media and community participation develop alongside delivery.
 
+[National Coverage](https://missing-middle-command-centre.auraofintelligence.workers.dev/coverage) maps the 2021 ABS population baseline and lets the Webmaster compare and save postcode catchments before selecting project sites. [Read the data and planning method](docs/NATIONAL-COVERAGE.md).
+
 ## Read the plan
 
 - [Command-centre plan](docs/COMMAND-CENTRE-PLAN.md): project lifecycle, familiar desks, roles, data model, privacy boundary, CMS and implementation releases.

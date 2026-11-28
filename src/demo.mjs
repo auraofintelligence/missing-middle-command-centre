@@ -1,3 +1,4 @@
+import {coverageRoute,readCoverage} from './coverage-routes.mjs';
 import {serveBrand} from './brand.mjs';
 import {desks,page,detail} from './views.mjs';
 import {tools,forDesk} from './desk-tools.mjs';
@@ -79,6 +80,9 @@ export default {
     const brand=serveBrand(request,url.pathname);
     if(brand)return brand;
     if(!['GET','HEAD'].includes(request.method))return new Response('The demo is view only.',{status:405,headers:{...headers,Allow:'GET, HEAD'}});
+    if(coverageRoute(url.pathname)){
+      return readCoverage(request,headers,null,null,true)||new Response('Demo page not found.',{status:404,headers});
+    }
     const requested=url.searchParams.get('desk');
     const desk=Object.hasOwn(desks,requested)?requested:'programme';
     const query=(url.searchParams.get('q')||'').trim().slice(0,100).toLowerCase();

@@ -1,3 +1,4 @@
+import {coverageRoute,readCoverage,manageCoverage} from './coverage-routes.mjs';
 import {serveBrand} from './brand.mjs';
 import {accessIdentity,accountFor} from './access.mjs';
 import {accountRoute} from './account.mjs';
@@ -63,6 +64,11 @@ export default {
         if (!account) return failure(403,'This account does not have workspace access.');
       }
       const preview = roleView(url,account);
+      if(coverageRoute(url.pathname)){
+        const publicReference=readCoverage(request,headers,account,preview);
+        if(publicReference)return publicReference;
+        return await manageCoverage(request,headers,env.DB,account,preview);
+      }
       const requestedDesk = url.searchParams.get('desk');
       const desk = Object.hasOwn(desks,requestedDesk) ? requestedDesk : 'programme';
       if (desk==='webmaster' && !account.owner) return failure(404,'Workspace not found.');
